@@ -1,0 +1,147 @@
+{
+  "projectType": "framework",
+  "projectName": "PocketMine-MP",
+  "projectDescription": "Custom server software for Minecraft: Bedrock Edition with a powerful plugin API",
+  "theme": "aspen",
+  "primaryColor": "#1E88E5",
+  "lightColor": "#42A5F5",
+  "darkColor": "#1565C0",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart",
+              "docker"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/architecture",
+              "concepts/plugin-lifecycle",
+              "concepts/event-system",
+              "concepts/worlds",
+              "concepts/permissions",
+              "concepts/networking"
+            ]
+          },
+          {
+            "group": "Plugin Development",
+            "pages": [
+              "plugins/getting-started",
+              "plugins/plugin-structure",
+              "plugins/event-handlers",
+              "plugins/commands",
+              "plugins/scheduling",
+              "plugins/configuration",
+              "plugins/resources",
+              "plugins/best-practices"
+            ]
+          },
+          {
+            "group": "Server Administration",
+            "pages": [
+              "admin/configuration",
+              "admin/performance",
+              "admin/security",
+              "admin/troubleshooting",
+              "admin/updating"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core API",
+            "pages": [
+              "api/server",
+              "api/plugin",
+              "api/command",
+              "api/scheduler"
+            ]
+          },
+          {
+            "group": "World & Gameplay",
+            "pages": [
+              "api/world",
+              "api/block",
+              "api/item",
+              "api/entity",
+              "api/player"
+            ]
+          },
+          {
+            "group": "Events",
+            "pages": [
+              "api/events/overview",
+              "api/events/player-events",
+              "api/events/block-events",
+              "api/events/entity-events",
+              "api/events/world-events",
+              "api/events/server-events"
+            ]
+          },
+          {
+            "group": "Utilities",
+            "pages": [
+              "api/utils",
+              "api/permissions",
+              "api/inventory",
+              "api/forms"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Contributing",
+        "groups": [
+          {
+            "group": "Development",
+            "pages": [
+              "contributing/building",
+              "contributing/guidelines",
+              "contributing/testing",
+              "contributing/security"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Powerful plugin API for extending gameplay",
+    "Event-driven architecture with comprehensive event system",
+    "Multi-world support with custom world generators",
+    "Command registration and handling",
+    "Task scheduler for async operations",
+    "Custom blocks, items, and entities",
+    "Permission system",
+    "Resource pack support",
+    "High performance with 100+ player support"
+  ],
+  "publicApiSurface": [
+    "pocketmine\\plugin\\PluginBase",
+    "pocketmine\\event\\Event",
+    "pocketmine\\event\\Listener",
+    "pocketmine\\command\\Command",
+    "pocketmine\\command\\CommandExecutor",
+    "pocketmine\\scheduler\\Task",
+    "pocketmine\\Server",
+    "pocketmine\\player\\Player",
+    "pocketmine\\world\\World",
+    "pocketmine\\block\\Block",
+    "pocketmine\\item\\Item",
+    "pocketmine\\entity\\Entity",
+    "pocketmine\\permission\\Permission",
+    "pocketmine\\form\\Form",
+    "pocketmine\\utils\\Config"
+  ]
+}
