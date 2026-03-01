@@ -1,0 +1,522 @@
+---
+title: 'Command API'
+description: 'Command and CommandExecutor API reference for PocketMine-MP'
+---
+
+## Overview
+
+The Command API allows you to create custom commands for your PocketMine-MP server. Commands can be registered via plugin.yml or programmatically.
+
+## Creating Commands
+
+### Method 1: Using plugin.yml
+
+Define commands in your plugin.yml:
+
+```yaml plugin.yml
+name: MyPlugin
+main: MyPlugin\Main
+version: 1.0.0
+api: 5.0.0
+
+commands:
+  heal:
+    description: Heal yourself
+    usage: /heal
+    permission: myplugin.heal
+  broadcast:
+    description: Broadcast a message
+    usage: /broadcast <message>
+    aliases: [bc, announce]
+    permission: myplugin.broadcast
+```
+
+Then implement `onCommand()` in your main class:
+
+```php
+public function onCommand(CommandSender $sender, Command $command, string $label, array $args) : bool {
+    switch($command->getName()) {
+        case "heal":
+            if($sender instanceof Player) {
+                $sender->setHealth($sender->getMaxHealth());
+                $sender->sendMessage("Healed!");
+                return true;
+            }
+            return false;
+            
+        case "broadcast":
+            if(count($args) === 0) {
+                return false; // Shows usage
+            }
+            $this->getServer()->broadcastMessage(implode(" ", $args));
+            return true;
+    }
+    return false;
+}
+```
+
+### Method 2: Extending Command Class
+
+Create a custom command class:
+
+```php Creating a custom command
+<?php
+
+namespace MyPlugin\commands;
+
+use pocketmine\command\Command;
+use pocketmine\command\CommandSender;
+use pocketmine\player\Player;
+use pocketmine\plugin\Plugin;
+use pocketmine\plugin\PluginOwned;
+
+class HealCommand extends Command implements PluginOwned {
+    
+    public function __construct(private Plugin $plugin) {
+        parent::__construct(
+            "heal",
+            "Heal yourself",
+            "/heal",
+            ["hp"]
+        );
+        $this->setPermission("myplugin.heal");
+    }
+    
+    public function execute(CommandSender $sender, string $commandLabel, array $args) {
+        if(!$this->testPermission($sender)) {
+            return false;
+        }
+        
+        if(!($sender instanceof Player)) {
+            $sender->sendMessage("This command must be used in-game");
+            return false;
+        }
+        
+        $sender->setHealth($sender->getMaxHealth());
+        $sender->sendMessage("You have been healed!");
+        return true;
+    }
+    
+    public function getOwningPlugin() : Plugin {
+        return $this->plugin;
+    }
+}
+```
+
+Register it in `onEnable()`:
+
+```php
+protected function onEnable() : void {
+    $this->getServer()->getCommandMap()->register(
+        "myplugin",
+        new HealCommand($this)
+    );
+}
+```
+
+## Command Class
+
+### Constructor
+
+Creates a new command.
+
+```php __construct()
+public function __construct(
+    string $name,
+    Translatable|string $description = "",
+    Translatable|string|null $usageMessage = null,
+    array $aliases = []
+)
+```
+
+<ParamField path="name" type="string" required>
+  Command name (without /)
+</ParamField>
+
+<ParamField path="description" type="string|Translatable">
+  Command description shown in /help
+</ParamField>
+
+<ParamField path="usageMessage" type="string|Translatable|null">
+  Usage message shown on error (default: "/commandname")
+</ParamField>
+
+<ParamField path="aliases" type="string[]">
+  Alternative names for the command
+</ParamField>
+
+**Example:**
+```php
+$command = new MyCommand(
+    "teleport",
+    "Teleport to a player",
+    "/teleport <player>",
+    ["tp", "tele"]
+);
+```
+
+### execute()
+
+Executes the command. Must be implemented by subclasses.
+
+```php execute() : mixed
+abstract public function execute(
+    CommandSender $sender,
+    string $commandLabel,
+    array $args
+)
+```
+
+<ParamField path="sender" type="CommandSender" required>
+  Who executed the command (Player, ConsoleCommandSender, etc.)
+</ParamField>
+
+<ParamField path="commandLabel" type="string" required>
+  The exact label used (could be an alias)
+</ParamField>
+
+<ParamField path="args" type="string[]" required>
+  Command arguments
+</ParamField>
+
+**Returns:** `mixed` - Usually bool (true = success, false = show usage)
+
+**Example:**
+```php
+public function execute(CommandSender $sender, string $commandLabel, array $args) {
+    if(!$this->testPermission($sender)) {
+        return false;
+    }
+    
+    if(count($args) < 1) {
+        $sender->sendMessage("Usage: " . $this->getUsage());
+        return false;
+    }
+    
+    // Command logic here
+    return true;
+}
+```
+
+### getName()
+
+Gets the command name.
+
+```php getName() : string
+public function getName() : string
+```
+
+**Returns:** `string` - Command name
+
+### getAliases()
+
+Gets command aliases.
+
+```php getAliases() : array
+public function getAliases() : array
+```
+
+**Returns:** `string[]` - Array of alias names
+
+### setAliases()
+
+Sets command aliases.
+
+```php setAliases(array $aliases) : void
+public function setAliases(array $aliases) : void
+```
+
+<ParamField path="aliases" type="string[]" required>
+  Array of alias names
+</ParamField>
+
+### getDescription()
+
+Gets the command description.
+
+```php getDescription() : Translatable|string
+public function getDescription() : Translatable|string
+```
+
+**Returns:** `string|Translatable` - Command description
+
+### setDescription()
+
+Sets the command description.
+
+```php setDescription(Translatable|string $description) : void
+public function setDescription(Translatable|string $description) : void
+```
+
+<ParamField path="description" type="string|Translatable" required>
+  New description
+</ParamField>
+
+### getUsage()
+
+Gets the usage message.
+
+```php getUsage() : Translatable|string
+public function getUsage() : Translatable|string
+```
+
+**Returns:** `string|Translatable` - Usage message
+
+### setUsage()
+
+Sets the usage message.
+
+```php setUsage(Translatable|string $usage) : void
+public function setUsage(Translatable|string $usage) : void
+```
+
+<ParamField path="usage" type="string|Translatable" required>
+  New usage message
+</ParamField>
+
+### getPermissions()
+
+Gets required permissions.
+
+```php getPermissions() : array
+public function getPermissions() : array
+```
+
+**Returns:** `string[]` - Array of permission nodes
+
+### setPermission()
+
+Sets the permission required to use the command.
+
+```php setPermission(?string $permission) : void
+public function setPermission(?string $permission) : void
+```
+
+<ParamField path="permission" type="string|null" required>
+  Permission node, or null for no permission. Use ";" to separate multiple permissions.
+</ParamField>
+
+**Example:**
+```php
+$command->setPermission("myplugin.admin");
+$command->setPermission("myplugin.use;myplugin.admin"); // Either permission
+$command->setPermission(null); // No permission required
+```
+
+### testPermission()
+
+Tests if a sender has permission to use the command.
+
+```php testPermission(CommandSender $target, ?string $permission = null) : bool
+public function testPermission(CommandSender $target, ?string $permission = null) : bool
+```
+
+<ParamField path="target" type="CommandSender" required>
+  The sender to test
+</ParamField>
+
+<ParamField path="permission" type="string|null">
+  Specific permission to test, or null to use command's permission
+</ParamField>
+
+**Returns:** `bool` - True if sender has permission
+
+**Note:** Automatically sends permission denied message to sender.
+
+**Example:**
+```php
+public function execute(CommandSender $sender, string $commandLabel, array $args) {
+    if(!$this->testPermission($sender)) {
+        return false; // Permission message already sent
+    }
+    
+    // Command logic
+    return true;
+}
+```
+
+### testPermissionSilent()
+
+Tests permission without sending a message.
+
+```php testPermissionSilent(CommandSender $target, ?string $permission = null) : bool
+public function testPermissionSilent(CommandSender $target, ?string $permission = null) : bool
+```
+
+<ParamField path="target" type="CommandSender" required>
+  The sender to test
+</ParamField>
+
+<ParamField path="permission" type="string|null">
+  Specific permission to test
+</ParamField>
+
+**Returns:** `bool` - True if sender has permission
+
+### setPermissionMessage()
+
+Sets the message shown when permission is denied.
+
+```php setPermissionMessage(string $permissionMessage) : void
+public function setPermissionMessage(string $permissionMessage) : void
+```
+
+<ParamField path="permissionMessage" type="string" required>
+  Permission denied message. Use `<permission>` as placeholder for permission node.
+</ParamField>
+
+**Example:**
+```php
+$command->setPermissionMessage("You need <permission> to use this!");
+```
+
+### broadcastCommandMessage()
+
+Broadcasts a command message to administrators.
+
+```php broadcastCommandMessage() : void
+public static function broadcastCommandMessage(
+    CommandSender $source,
+    Translatable|string $message,
+    bool $sendToSource = true
+) : void
+```
+
+<ParamField path="source" type="CommandSender" required>
+  Command sender
+</ParamField>
+
+<ParamField path="message" type="string|Translatable" required>
+  Message to broadcast
+</ParamField>
+
+<ParamField path="sendToSource" type="bool">
+  Whether to send to the source (default: true)
+</ParamField>
+
+**Example:**
+```php
+Command::broadcastCommandMessage(
+    $sender,
+    "Teleported {$player->getName()} to spawn"
+);
+```
+
+## CommandExecutor Interface
+
+The `CommandExecutor` interface is implemented by `PluginBase` by default. It's used for handling commands defined in plugin.yml.
+
+### onCommand()
+
+Handles command execution.
+
+```php onCommand() : bool
+public function onCommand(
+    CommandSender $sender,
+    Command $command,
+    string $label,
+    array $args
+) : bool
+```
+
+<ParamField path="sender" type="CommandSender" required>
+  Who executed the command
+</ParamField>
+
+<ParamField path="command" type="Command" required>
+  The command object
+</ParamField>
+
+<ParamField path="label" type="string" required>
+  The label used (could be alias)
+</ParamField>
+
+<ParamField path="args" type="string[]" required>
+  Command arguments
+</ParamField>
+
+**Returns:** `bool` - True if handled successfully, false to show usage
+
+## Complete Command Example
+
+```php Advanced command example
+<?php
+
+namespace MyPlugin\commands;
+
+use pocketmine\command\Command;
+use pocketmine\command\CommandSender;
+use pocketmine\player\Player;
+use pocketmine\plugin\Plugin;
+use pocketmine\plugin\PluginOwned;
+use pocketmine\Server;
+
+class TeleportCommand extends Command implements PluginOwned {
+    
+    public function __construct(private Plugin $plugin) {
+        parent::__construct(
+            "teleport",
+            "Teleport to a player",
+            "/teleport <player>",
+            ["tp"]
+        );
+        $this->setPermission("myplugin.teleport");
+        $this->setPermissionMessage("You don't have permission to teleport!");
+    }
+    
+    public function execute(CommandSender $sender, string $commandLabel, array $args) {
+        // Check permission
+        if(!$this->testPermission($sender)) {
+            return false;
+        }
+        
+        // Must be a player
+        if(!($sender instanceof Player)) {
+            $sender->sendMessage("This command can only be used in-game");
+            return false;
+        }
+        
+        // Check arguments
+        if(count($args) < 1) {
+            $sender->sendMessage("Usage: " . $this->getUsage());
+            return false;
+        }
+        
+        // Find target player
+        $targetName = $args[0];
+        $target = Server::getInstance()->getPlayerExact($targetName);
+        
+        if($target === null) {
+            $sender->sendMessage("Player '$targetName' not found!");
+            return false;
+        }
+        
+        // Teleport
+        $sender->teleport($target->getLocation());
+        $sender->sendMessage("Teleported to {$target->getName()}!");
+        
+        // Broadcast to admins
+        Command::broadcastCommandMessage(
+            $sender,
+            "Teleported to {$target->getName()}"
+        );
+        
+        return true;
+    }
+    
+    public function getOwningPlugin() : Plugin {
+        return $this->plugin;
+    }
+}
+```
+
+Register in main class:
+
+```php
+protected function onEnable() : void {
+    $this->getServer()->getCommandMap()->register(
+        $this->getName(),
+        new TeleportCommand($this)
+    );
+}
+```

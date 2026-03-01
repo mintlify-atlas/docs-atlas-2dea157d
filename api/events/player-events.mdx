@@ -1,0 +1,498 @@
+---
+title: Player Events
+description: Events related to player actions, connections, movement, and interactions
+---
+
+Player events are fired when players perform actions or undergo state changes. All player events extend the `PlayerEvent` base class.
+
+## PlayerEvent Base Class
+
+All player events inherit from this class:
+
+<ParamField path="getPlayer()" type="Player">
+  Returns the player involved in the event
+</ParamField>
+
+## Connection Events
+
+<Accordion title="PlayerPreLoginEvent">
+  **Cancellable:** Yes
+  
+  Called before a player is authenticated. Use this for custom authentication or IP bans.
+  
+  ```php
+  public function onPreLogin(PlayerPreLoginEvent $event) : void {
+      $playerInfo = $event->getPlayerInfo();
+      $ip = $event->getIp();
+      
+      if ($this->isIpBanned($ip)) {
+          $event->setKickFlag(PlayerPreLoginEvent::KICK_FLAG_BANNED, "You are banned");
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getPlayerInfo()` - Returns player information
+  - `getIp()` - Returns player's IP address
+  - `getPort()` - Returns connection port
+  - `setKickFlag(int $flag, Translatable|string $reason)` - Kicks the player with a reason
+</Accordion>
+
+<Accordion title="PlayerLoginEvent">
+  **Cancellable:** Yes
+  
+  Called when a player logs in, after authentication but before they spawn.
+  
+  ```php
+  public function onLogin(PlayerLoginEvent $event) : void {
+      $player = $event->getPlayer();
+      
+      if (!$this->isWhitelisted($player->getName())) {
+          $event->setKickMessage("You are not whitelisted");
+          $event->cancel();
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getPlayer()` - Returns the player
+  - `setKickMessage(Translatable|string $message)` - Sets kick message
+  - `getKickMessage()` - Gets kick message
+</Accordion>
+
+<Accordion title="PlayerJoinEvent">
+  **Cancellable:** No
+  
+  Called when a player spawns in the world after logging in.
+  
+  ```php
+  public function onJoin(PlayerJoinEvent $event) : void {
+      $player = $event->getPlayer();
+      $event->setJoinMessage("§e" . $player->getName() . " joined the game");
+  }
+  ```
+  
+  **Methods:**
+  - `getJoinMessage()` - Returns the join message
+  - `setJoinMessage(Translatable|string $message)` - Sets the join message
+</Accordion>
+
+<Accordion title="PlayerQuitEvent">
+  **Cancellable:** No
+  
+  Called when a player disconnects from the server.
+  
+  ```php
+  public function onQuit(PlayerQuitEvent $event) : void {
+      $player = $event->getPlayer();
+      $event->setQuitMessage($player->getName() . " left the game");
+      $this->savePlayerData($player);
+  }
+  ```
+  
+  **Methods:**
+  - `getQuitMessage()` - Returns the quit message
+  - `setQuitMessage(Translatable|string $message)` - Sets the quit message
+  - `getDisconnectReason()` - Returns the disconnect reason
+</Accordion>
+
+<Accordion title="PlayerKickEvent">
+  **Cancellable:** Yes
+  
+  Called when a player is kicked from the server.
+  
+  ```php
+  public function onKick(PlayerKickEvent $event) : void {
+      $reason = $event->getDisconnectReason();
+      
+      if ($reason === "Flying is not enabled") {
+          $event->cancel(); // Forgive the player
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getDisconnectReason()` - Returns the kick reason
+  - `getQuitMessage()` - Returns the quit message
+  - `setQuitMessage(Translatable|string $message)` - Sets the quit message
+  - `getDisconnectScreenMessage()` - Returns message shown to kicked player
+</Accordion>
+
+## Movement Events
+
+<Accordion title="PlayerMoveEvent">
+  **Cancellable:** Yes
+  
+  Called when a player moves. **Warning:** This event is called very frequently!
+  
+  ```php
+  public function onMove(PlayerMoveEvent $event) : void {
+      $from = $event->getFrom();
+      $to = $event->getTo();
+      
+      if ($this->isProtectedArea($to)) {
+          $event->cancel(); // Prevent movement
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getFrom()` - Returns the location the player is moving from
+  - `getTo()` - Returns the location the player is moving to
+  - `setTo(Location $to)` - Changes the destination location
+</Accordion>
+
+<Accordion title="PlayerJumpEvent">
+  **Cancellable:** No
+  
+  Called when a player jumps.
+  
+  ```php
+  public function onJump(PlayerJumpEvent $event) : void {
+      $player = $event->getPlayer();
+      $player->sendTip("You jumped!");
+  }
+  ```
+</Accordion>
+
+<Accordion title="PlayerToggleFlightEvent">
+  **Cancellable:** Yes
+  
+  Called when a player toggles flight mode.
+  
+  ```php
+  public function onToggleFlight(PlayerToggleFlightEvent $event) : void {
+      $player = $event->getPlayer();
+      
+      if ($event->isFlying() && !$player->hasPermission("myplugin.fly")) {
+          $event->cancel();
+          $player->sendMessage("You don't have permission to fly");
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `isFlying()` - Returns whether the player is starting to fly
+</Accordion>
+
+<Accordion title="PlayerToggleSneakEvent">
+  **Cancellable:** Yes
+  
+  Called when a player starts or stops sneaking.
+  
+  **Methods:**
+  - `isSneaking()` - Returns whether the player is starting to sneak
+</Accordion>
+
+<Accordion title="PlayerToggleSprintEvent">
+  **Cancellable:** Yes
+  
+  Called when a player starts or stops sprinting.
+  
+  **Methods:**
+  - `isSprinting()` - Returns whether the player is starting to sprint
+</Accordion>
+
+<Accordion title="PlayerToggleGlideEvent">
+  **Cancellable:** Yes
+  
+  Called when a player starts or stops gliding with elytra.
+  
+  **Methods:**
+  - `isGliding()` - Returns whether the player is starting to glide
+</Accordion>
+
+<Accordion title="PlayerToggleSwimEvent">
+  **Cancellable:** Yes
+  
+  Called when a player starts or stops swimming.
+  
+  **Methods:**
+  - `isSwimming()` - Returns whether the player is starting to swim
+</Accordion>
+
+## Interaction Events
+
+<Accordion title="PlayerInteractEvent">
+  **Cancellable:** Yes
+  
+  Called when a player interacts with a block (left or right click).
+  
+  ```php
+  public function onInteract(PlayerInteractEvent $event) : void {
+      $player = $event->getPlayer();
+      $block = $event->getBlock();
+      $item = $event->getItem();
+      
+      if ($event->getAction() === PlayerInteractEvent::RIGHT_CLICK_BLOCK) {
+          if ($block instanceof Door) {
+              // Player right-clicked a door
+          }
+      }
+  }
+  ```
+  
+  **Constants:**
+  - `LEFT_CLICK_BLOCK` (0) - Player left-clicked
+  - `RIGHT_CLICK_BLOCK` (1) - Player right-clicked
+  
+  **Methods:**
+  - `getAction()` - Returns the action type
+  - `getItem()` - Returns the item in hand
+  - `getBlock()` - Returns the block that was touched
+  - `getTouchVector()` - Returns the exact position touched
+  - `getFace()` - Returns the block face that was touched
+  - `useItem()` - Returns whether the item may react
+  - `setUseItem(bool $use)` - Sets whether the item may react
+  - `useBlock()` - Returns whether the block may react
+  - `setUseBlock(bool $use)` - Sets whether the block may react
+</Accordion>
+
+<Accordion title="PlayerItemUseEvent">
+  **Cancellable:** Yes
+  
+  Called when a player uses an item (right-clicks while holding it).
+  
+  ```php
+  public function onItemUse(PlayerItemUseEvent $event) : void {
+      $item = $event->getItem();
+      
+      if ($item instanceof EnderPearl) {
+          // Player used an ender pearl
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getItem()` - Returns the item being used
+  - `getDirectionVector()` - Returns the direction the player is facing
+</Accordion>
+
+<Accordion title="PlayerItemHeldEvent">
+  **Cancellable:** Yes
+  
+  Called when a player changes their held item slot.
+  
+  ```php
+  public function onItemHeld(PlayerItemHeldEvent $event) : void {
+      $player = $event->getPlayer();
+      $newSlot = $event->getSlot();
+      $item = $event->getItem();
+      
+      $player->sendTip("Selected: " . $item->getName());
+  }
+  ```
+  
+  **Methods:**
+  - `getItem()` - Returns the item being held
+  - `getSlot()` - Returns the hotbar slot number (0-8)
+</Accordion>
+
+<Accordion title="PlayerItemConsumeEvent">
+  **Cancellable:** Yes
+  
+  Called when a player finishes consuming an item (eating food, drinking potions).
+  
+  ```php
+  public function onConsume(PlayerItemConsumeEvent $event) : void {
+      $item = $event->getItem();
+      
+      if ($item instanceof GoldenApple) {
+          $event->getPlayer()->sendMessage("Yummy!");
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getItem()` - Returns the item being consumed
+</Accordion>
+
+<Accordion title="PlayerDropItemEvent">
+  **Cancellable:** Yes
+  
+  Called when a player drops an item.
+  
+  ```php
+  public function onDrop(PlayerDropItemEvent $event) : void {
+      $item = $event->getItem();
+      
+      if ($item->hasTag("no_drop")) {
+          $event->cancel();
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getItem()` - Returns the dropped item entity
+</Accordion>
+
+<Accordion title="PlayerEntityInteractEvent">
+  **Cancellable:** Yes
+  
+  Called when a player interacts with an entity.
+  
+  ```php
+  public function onEntityInteract(PlayerEntityInteractEvent $event) : void {
+      $entity = $event->getEntity();
+      
+      if ($entity instanceof Villager) {
+          // Player interacted with a villager
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getEntity()` - Returns the entity that was interacted with
+  - `getTouchVector()` - Returns the touch position
+</Accordion>
+
+## Combat Events
+
+<Accordion title="PlayerDeathEvent">
+  **Cancellable:** No
+  
+  Called when a player dies.
+  
+  ```php
+  public function onDeath(PlayerDeathEvent $event) : void {
+      $player = $event->getPlayer();
+      $event->setDeathMessage($player->getName() . " died");
+      $event->setDrops([]); // Clear drops
+  }
+  ```
+  
+  **Methods:**
+  - `getDeathMessage()` - Returns the death message
+  - `setDeathMessage(Translatable|string $message)` - Sets the death message
+  - `getDrops()` - Returns array of dropped items
+  - `setDrops(array $drops)` - Sets the dropped items
+  - `getXpDropAmount()` - Returns XP to drop
+  - `setXpDropAmount(int $amount)` - Sets XP to drop
+</Accordion>
+
+<Accordion title="PlayerRespawnEvent">
+  **Cancellable:** No
+  
+  Called when a player respawns after death.
+  
+  ```php
+  public function onRespawn(PlayerRespawnEvent $event) : void {
+      $spawn = $this->getCustomSpawn();
+      $event->setRespawnPosition($spawn);
+  }
+  ```
+  
+  **Methods:**
+  - `getRespawnPosition()` - Returns the respawn position
+  - `setRespawnPosition(Position $position)` - Sets the respawn position
+</Accordion>
+
+## Communication Events
+
+<Accordion title="PlayerChatEvent">
+  **Cancellable:** Yes
+  
+  Called when a player sends a chat message.
+  
+  ```php
+  public function onChat(PlayerChatEvent $event) : void {
+      $message = $event->getMessage();
+      
+      if ($this->containsBadWords($message)) {
+          $event->cancel();
+          $event->getPlayer()->sendMessage("Watch your language!");
+          return;
+      }
+      
+      // Modify the message
+      $event->setMessage(strtoupper($message));
+  }
+  ```
+  
+  **Methods:**
+  - `getMessage()` - Returns the chat message
+  - `setMessage(string $message)` - Sets the chat message
+  - `getRecipients()` - Returns array of CommandSenders who will receive the message
+  - `setRecipients(array $recipients)` - Sets the message recipients
+  - `getFormatter()` - Returns the chat formatter
+  - `setFormatter(ChatFormatter $formatter)` - Sets the chat formatter
+</Accordion>
+
+<Accordion title="PlayerEmoteEvent">
+  **Cancellable:** Yes
+  
+  Called when a player uses an emote.
+  
+  **Methods:**
+  - `getEmoteId()` - Returns the emote ID
+</Accordion>
+
+## Game State Events
+
+<Accordion title="PlayerGameModeChangeEvent">
+  **Cancellable:** Yes
+  
+  Called when a player's game mode changes.
+  
+  ```php
+  public function onGameModeChange(PlayerGameModeChangeEvent $event) : void {
+      $newGameMode = $event->getNewGameMode();
+      
+      if ($newGameMode === GameMode::CREATIVE() && 
+          !$event->getPlayer()->hasPermission("myplugin.creative")) {
+          $event->cancel();
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getNewGameMode()` - Returns the new GameMode
+</Accordion>
+
+<Accordion title="PlayerExperienceChangeEvent">
+  **Cancellable:** Yes
+  
+  Called when a player's experience changes.
+  
+  **Methods:**
+  - `getExpDifference()` - Returns the XP change amount
+  - `setExpDifference(int|float $amount)` - Sets the XP change amount
+  - `getOldProgress()` - Returns old progress to next level
+  - `getOldLevel()` - Returns old XP level
+</Accordion>
+
+<Accordion title="PlayerExhaustEvent">
+  **Cancellable:** Yes
+  
+  Called when a player's food exhaustion increases.
+  
+  **Methods:**
+  - `getAmount()` - Returns exhaustion amount
+  - `setAmount(float $amount)` - Sets exhaustion amount
+  - `getCause()` - Returns the exhaustion cause
+</Accordion>
+
+## Complete Event List
+
+Other player events not detailed above:
+
+- `PlayerBedEnterEvent` - Player enters a bed
+- `PlayerBedLeaveEvent` - Player leaves a bed
+- `PlayerBlockPickEvent` - Player picks a block (middle-click)
+- `PlayerBucketEmptyEvent` - Player empties a bucket
+- `PlayerBucketFillEvent` - Player fills a bucket
+- `PlayerChangeSkinEvent` - Player changes their skin
+- `PlayerCreationEvent` - Before player object is created
+- `PlayerDataSaveEvent` - Before player data is saved
+- `PlayerDisplayNameChangeEvent` - Player's display name changes
+- `PlayerDuplicateLoginEvent` - Player tries to login while already online
+- `PlayerEditBookEvent` - Player edits a book
+- `PlayerEnchantingOptionsRequestEvent` - Player opens enchanting table
+- `PlayerEntityPickEvent` - Player picks an entity (middle-click)
+- `PlayerItemEnchantEvent` - Player enchants an item
+- `PlayerMissSwingEvent` - Player swings at air
+- `PlayerPostChunkSendEvent` - After chunk is sent to player
+- `PlayerResourcePackOfferEvent` - Server offers resource pack to player
+- `PlayerRespawnAnchorUseEvent` - Player uses a respawn anchor
+- `PlayerTransferEvent` - Player is transferred to another server
+- `PlayerViewDistanceChangeEvent` - Player's view distance changes

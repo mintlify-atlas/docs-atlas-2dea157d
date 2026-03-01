@@ -1,0 +1,564 @@
+---
+title: Task Scheduling
+description: Task scheduler, async tasks, repeating tasks in PocketMine-MP
+---
+
+The task scheduler allows you to run code at specific times, with delays, or repeatedly. This is essential for timers, countdowns, auto-save systems, and more.
+
+## Task Types
+
+PocketMine-MP has two main types of tasks:
+
+1. **Regular Tasks** - Run on the main server thread
+2. **Async Tasks** - Run on separate worker threads
+
+<Warning>
+Async tasks cannot access the Server instance, worlds, players, or entities directly. Use them only for CPU-intensive operations.
+</Warning>
+
+## Creating a Task
+
+Tasks extend the `Task` class and implement `onRun()`:
+
+```php src/MyPlugin/tasks/MyTask.php
+<?php
+
+declare(strict_types=1);
+
+namespace MyPlugin\tasks;
+
+use pocketmine\scheduler\Task;
+use MyPlugin\Main;
+
+class MyTask extends Task {
+    
+    public function __construct(
+        private Main $plugin
+    ){}
+    
+    public function onRun() : void {
+        // This code runs when the task executes
+        $this->plugin->getLogger()->info("Task executed!");
+    }
+}
+```
+
+## Scheduling Tasks
+
+All scheduling is done through the plugin's scheduler:
+
+### Run Once (Immediate)
+
+Execute a task once, immediately:
+
+```php
+$this->getScheduler()->scheduleTask(new MyTask($this));
+```
+
+### Run Once (Delayed)
+
+Execute a task once, after a delay:
+
+```php
+// Run after 20 ticks (1 second)
+$this->getScheduler()->scheduleDelayedTask(new MyTask($this), 20);
+
+// Run after 5 seconds (100 ticks)
+$this->getScheduler()->scheduleDelayedTask(new MyTask($this), 100);
+```
+
+<Note>
+PocketMine-MP runs at 20 ticks per second (TPS). 1 tick = 0.05 seconds = 50ms.
+</Note>
+
+### Run Repeatedly
+
+Execute a task repeatedly at a fixed interval:
+
+```php
+// Run every 20 ticks (every second)
+$this->getScheduler()->scheduleRepeatingTask(
+    new MyTask($this),
+    20  // period in ticks
+);
+
+// Run every 5 seconds
+$this->getScheduler()->scheduleRepeatingTask(
+    new MyTask($this),
+    100
+);
+```
+
+### Run Repeatedly (Delayed Start)
+
+Execute a task repeatedly, but start after a delay:
+
+```php
+// Wait 60 ticks (3 seconds), then run every 20 ticks (1 second)
+$this->getScheduler()->scheduleDelayedRepeatingTask(
+    new MyTask($this),
+    60,  // delay before first run
+    20   // period between runs
+);
+```
+
+## Closure Tasks
+
+For simple tasks, use `ClosureTask` instead of creating a class:
+
+```php
+use pocketmine\scheduler\ClosureTask;
+
+// Run once
+$this->getScheduler()->scheduleTask(new ClosureTask(
+    function() : void {
+        $this->getLogger()->info("Task ran!");
+    }
+));
+
+// Run delayed
+$this->getScheduler()->scheduleDelayedTask(
+    new ClosureTask(function() : void {
+        $this->getLogger()->info("Delayed task!");
+    }),
+    40  // 2 seconds
+);
+
+// Run repeatedly
+$this->getScheduler()->scheduleRepeatingTask(
+    new ClosureTask(function() : void {
+        $this->broadcastMessage("Repeating task!");
+    }),
+    20  // every second
+);
+```
+
+## Canceling Tasks
+
+Tasks can be cancelled using their `TaskHandler`:
+
+```php
+// Save the handler when scheduling
+$handler = $this->getScheduler()->scheduleRepeatingTask(
+    new MyTask($this),
+    20
+);
+
+// Cancel the task later
+$handler->cancel();
+```
+
+### Cancel from Inside Task
+
+```php
+class CountdownTask extends Task {
+    
+    private int $count = 10;
+    
+    public function __construct(
+        private Main $plugin
+    ){}
+    
+    public function onRun() : void {
+        if($this->count <= 0) {
+            $this->plugin->getServer()->broadcastMessage("Countdown finished!");
+            $this->getHandler()->cancel();
+            return;
+        }
+        
+        $this->plugin->getServer()->broadcastMessage(
+            "Countdown: " . $this->count
+        );
+        $this->count--;
+    }
+}
+
+// Schedule: runs every second, cancels automatically at 0
+$this->getScheduler()->scheduleRepeatingTask(
+    new CountdownTask($this),
+    20
+);
+```
+
+### Cancel All Plugin Tasks
+
+Cancel all tasks when plugin disables:
+
+```php
+protected function onDisable() : void {
+    $this->getScheduler()->cancelAllTasks();
+}
+```
+
+<Note>
+Plugin tasks are automatically cancelled when the plugin is disabled.
+</Note>
+
+## Complete Examples
+
+### Auto-Save Task
+
+```php src/MyPlugin/tasks/AutoSaveTask.php
+<?php
+
+declare(strict_types=1);
+
+namespace MyPlugin\tasks;
+
+use pocketmine\scheduler\Task;
+use MyPlugin\Main;
+
+class AutoSaveTask extends Task {
+    
+    public function __construct(
+        private Main $plugin
+    ){}
+    
+    public function onRun() : void {
+        // Save all player data
+        foreach($this->plugin->getServer()->getOnlinePlayers() as $player) {
+            $this->plugin->savePlayerData($player);
+        }
+        
+        // Save plugin data
+        $this->plugin->getConfig()->save();
+        
+        $this->plugin->getLogger()->info("Auto-saved player data");
+    }
+}
+
+// In Main.php onEnable():
+protected function onEnable() : void {
+    // Auto-save every 5 minutes (6000 ticks)
+    $this->getScheduler()->scheduleRepeatingTask(
+        new AutoSaveTask($this),
+        6000
+    );
+}
+```
+
+### Countdown Timer
+
+```php src/MyPlugin/tasks/GameCountdownTask.php
+<?php
+
+declare(strict_types=1);
+
+namespace MyPlugin\tasks;
+
+use pocketmine\scheduler\Task;
+use MyPlugin\Main;
+
+class GameCountdownTask extends Task {
+    
+    private int $secondsLeft;
+    
+    public function __construct(
+        private Main $plugin,
+        int $seconds
+    ){
+        $this->secondsLeft = $seconds;
+    }
+    
+    public function onRun() : void {
+        if($this->secondsLeft <= 0) {
+            $this->plugin->startGame();
+            $this->getHandler()->cancel();
+            return;
+        }
+        
+        // Announce at specific intervals
+        if($this->secondsLeft <= 5 || $this->secondsLeft % 10 === 0) {
+            $this->plugin->getServer()->broadcastMessage(
+                "§eGame starting in §c" . $this->secondsLeft . "§e seconds!"
+            );
+        }
+        
+        $this->secondsLeft--;
+    }
+}
+
+// Start 30 second countdown
+$this->getScheduler()->scheduleRepeatingTask(
+    new GameCountdownTask($this, 30),
+    20  // runs every second
+);
+```
+
+### Repeating Announcement
+
+```php
+protected function onEnable() : void {
+    // Announce every 5 minutes
+    $messages = [
+        "§eWelcome to our server!",
+        "§eVisit our website: example.com",
+        "§eDonate to support the server!"
+    ];
+    
+    $index = 0;
+    
+    $this->getScheduler()->scheduleRepeatingTask(
+        new ClosureTask(function() use (&$index, $messages) : void {
+            $this->getServer()->broadcastMessage($messages[$index]);
+            $index = ($index + 1) % count($messages);
+        }),
+        6000  // 5 minutes
+    );
+}
+```
+
+### Delayed Teleport
+
+```php
+public function teleportWithDelay(Player $player, Position $destination) : void {
+    $player->sendMessage("§eTeleporting in 3 seconds...");
+    
+    // Save player's position to check if they moved
+    $originalPos = $player->getPosition();
+    
+    $this->getScheduler()->scheduleDelayedTask(
+        new ClosureTask(function() use ($player, $destination, $originalPos) : void {
+            // Check if player moved
+            if($player->getPosition()->distance($originalPos) > 0.5) {
+                $player->sendMessage("§cTeleport cancelled - you moved!");
+                return;
+            }
+            
+            $player->teleport($destination);
+            $player->sendMessage("§aTeleported!");
+        }),
+        60  // 3 seconds
+    );
+}
+```
+
+## Async Tasks
+
+Async tasks run on separate threads and should be used for CPU-intensive operations like:
+- World generation
+- Data compression
+- Large file operations (without using Server APIs)
+- Complex calculations
+
+<Warning>
+Async tasks CANNOT:
+- Access Server, worlds, players, entities
+- Call plugin methods directly
+- Modify game state
+
+Only use async tasks for isolated, CPU-bound work.
+</Warning>
+
+### Creating an Async Task
+
+```php src/MyPlugin/tasks/MyAsyncTask.php
+<?php
+
+declare(strict_types=1);
+
+namespace MyPlugin\tasks;
+
+use pocketmine\scheduler\AsyncTask;
+
+class MyAsyncTask extends AsyncTask {
+    
+    private string $data;
+    
+    public function __construct(string $data) {
+        $this->data = $data;
+    }
+    
+    // Runs on worker thread (cannot access Server)
+    public function onRun() : void {
+        // Do heavy computation
+        $result = [];
+        for($i = 0; $i < 1000000; $i++) {
+            $result[] = hash('sha256', $this->data . $i);
+        }
+        
+        // Store result (must be serializable)
+        $this->setResult(count($result));
+    }
+    
+    // Runs on main thread when task completes
+    public function onCompletion() : void {
+        $result = $this->getResult();
+        // Can access Server here
+    }
+}
+```
+
+### Scheduling Async Tasks
+
+```php
+$task = new MyAsyncTask("some data");
+$this->getServer()->getAsyncPool()->submitTask($task);
+```
+
+### Using storeLocal/fetchLocal
+
+To pass non-serializable data (like plugin reference) from main thread to completion:
+
+```php
+class MyAsyncTask extends AsyncTask {
+    
+    public function __construct(Main $plugin) {
+        // Store plugin reference (won't be serialized)
+        $this->storeLocal("plugin", $plugin);
+    }
+    
+    public function onRun() : void {
+        // Cannot access plugin here
+        $result = "computed value";
+        $this->setResult($result);
+    }
+    
+    public function onCompletion() : void {
+        // Retrieve plugin reference
+        /** @var Main $plugin */
+        $plugin = $this->fetchLocal("plugin");
+        
+        $result = $this->getResult();
+        $plugin->getLogger()->info("Task completed: " . $result);
+    }
+}
+```
+
+## Time Conversions
+
+Helper for converting time to ticks:
+
+```php
+class TimeHelper {
+    public const TICKS_PER_SECOND = 20;
+    public const TICKS_PER_MINUTE = 20 * 60;
+    public const TICKS_PER_HOUR = 20 * 60 * 60;
+    
+    public static function secondsToTicks(float $seconds) : int {
+        return (int) ($seconds * self::TICKS_PER_SECOND);
+    }
+    
+    public static function minutesToTicks(float $minutes) : int {
+        return (int) ($minutes * self::TICKS_PER_MINUTE);
+    }
+}
+
+// Usage:
+$this->getScheduler()->scheduleDelayedTask(
+    new MyTask($this),
+    TimeHelper::secondsToTicks(5)  // 5 seconds
+);
+
+$this->getScheduler()->scheduleRepeatingTask(
+    new MyTask($this),
+    TimeHelper::minutesToTicks(1)  // every minute
+);
+```
+
+## Task Handler Methods
+
+```php
+$handler = $this->getScheduler()->scheduleRepeatingTask(new MyTask($this), 20);
+
+// Cancel the task
+$handler->cancel();
+
+// Check if cancelled
+if($handler->isCancelled()) {
+    // Task is cancelled
+}
+
+// Check if it's a repeating task
+if($handler->isRepeating()) {
+    // This is a repeating task
+}
+
+// Check if it has a delay
+if($handler->isDelayed()) {
+    // This task has a delay before first run
+}
+
+// Get the task instance
+$task = $handler->getTask();
+```
+
+## Best Practices
+
+<Tip>
+
+**Use ClosureTask for simple operations:**
+```php
+$this->getScheduler()->scheduleDelayedTask(
+    new ClosureTask(fn() => $player->sendMessage("Hello!")),
+    20
+);
+```
+
+**Create Task classes for complex logic:**
+```php
+class ComplexTask extends Task {
+    // Multiple methods, properties, logic
+}
+```
+
+**Always cancel repeating tasks:**
+```php
+private ?TaskHandler $repeatingTask = null;
+
+protected function onEnable() : void {
+    $this->repeatingTask = $this->getScheduler()->scheduleRepeatingTask(...);
+}
+
+protected function onDisable() : void {
+    $this->repeatingTask?->cancel();
+}
+```
+
+**Don't schedule too many tasks:**
+Each task has overhead. Instead of 1000 individual tasks, use one task that processes multiple items.
+
+**Use delays wisely:**
+Don't schedule a task every tick (20 times per second) unless absolutely necessary. This impacts performance.
+
+</Tip>
+
+## Debugging Tasks
+
+```php
+class DebugTask extends Task {
+    
+    private int $runCount = 0;
+    
+    public function __construct(
+        private Main $plugin
+    ){}
+    
+    public function onRun() : void {
+        $this->runCount++;
+        $this->plugin->getLogger()->debug(
+            "Task ran {$this->runCount} times"
+        );
+        
+        // Auto-cancel after 10 runs
+        if($this->runCount >= 10) {
+            $this->plugin->getLogger()->info("Task finished");
+            $this->getHandler()->cancel();
+        }
+    }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Configuration" icon="file-code" href="/plugins/configuration">
+Manage plugin settings and data
+</Card>
+
+<Card title="Resources" icon="folder" href="/plugins/resources">
+Work with embedded resources
+</Card>
+
+</CardGroup>

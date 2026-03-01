@@ -1,0 +1,763 @@
+---
+title: Troubleshooting
+description: Solutions to common PocketMine-MP server issues and problems
+---
+
+This guide covers common issues encountered when running PocketMine-MP servers and their solutions.
+
+## Server Won't Start
+
+<AccordionGroup>
+
+<Accordion title="PHP version mismatch">
+**Symptoms:**
+- "PHP version not supported" error
+- Server immediately exits
+- "Syntax error" in core files
+
+**Solution:**
+
+PocketMine-MP requires specific PHP versions. Check requirements:
+
+```bash
+# Check PHP version
+php -v
+
+# Install correct PHP version
+# See installation docs for version requirements
+```
+
+<Note>
+Each PocketMine-MP version requires a specific PHP version. Check the release notes or README.
+</Note>
+</Accordion>
+
+<Accordion title="Port already in use">
+**Symptoms:**
+- "Failed to bind to port" error
+- "Address already in use"
+
+**Solution:**
+
+<Tabs>
+
+<Tab title="Linux/macOS">
+```bash
+# Find process using port 19132
+sudo lsof -i :19132
+
+# Kill the process
+sudo kill -9 <PID>
+
+# Or change port in server.properties
+server-port=19133
+```
+</Tab>
+
+<Tab title="Windows">
+```powershell
+# Find process using port
+netstat -ano | findstr :19132
+
+# Kill process
+taskkill /PID <PID> /F
+
+# Or change port in server.properties
+```
+</Tab>
+
+</Tabs>
+</Accordion>
+
+<Accordion title="Missing PHP extensions">
+**Symptoms:**
+- "Extension X is not loaded" error
+- Fatal PHP errors on startup
+
+**Solution:**
+
+Install required PHP extensions:
+
+```bash
+# Linux (example for Ubuntu)
+sudo apt-get install php-pthreads php-yaml php-sqlite3 php-zip
+
+# Check installed extensions
+php -m
+```
+
+<Info>
+PocketMine-MP requires: pthreads, yaml, sqlite3, zlib, curl, and others. Use the official installation script for automatic setup.
+</Info>
+</Accordion>
+
+<Accordion title="Permission denied errors">
+**Symptoms:**
+- "Permission denied" when accessing files
+- Cannot write to directories
+
+**Solution:**
+
+```bash
+# Fix ownership
+sudo chown -R $(whoami) /path/to/server
+
+# Fix permissions
+chmod -R 755 /path/to/server
+chmod 644 server.properties pocketmine.yml
+```
+</Accordion>
+
+<Accordion title="Memory limit too low">
+**Symptoms:**
+- "Memory limit exceeded" error
+- Server exits during startup
+
+**Solution:**
+
+Increase memory limit in `pocketmine.yml`:
+
+```yaml
+memory:
+  main-hard-limit: 2048  # Increase to 2GB
+```
+
+Or increase PHP memory limit:
+
+```bash
+# Edit php.ini
+memory_limit = 2048M
+```
+</Accordion>
+
+</AccordionGroup>
+
+## Connection Issues
+
+<AccordionGroup>
+
+<Accordion title="Players can't connect">
+**Symptoms:**
+- "Unable to connect to world" error
+- Connection timeout
+- Server not visible in LAN games
+
+**Troubleshooting steps:**
+
+<Steps>
+
+<Step title="Verify server is running">
+```bash
+# Check if server is listening
+netstat -an | grep 19132
+```
+</Step>
+
+<Step title="Check firewall">
+```bash
+# Linux
+sudo ufw status
+sudo ufw allow 19132/udp
+
+# Windows - check Windows Defender Firewall
+```
+</Step>
+
+<Step title="Verify port forwarding (if behind router)">
+- Forward UDP port 19132 to server IP
+- Check router configuration
+- Test with port checker tool
+</Step>
+
+<Step title="Check IP configuration">
+```properties server.properties
+# Leave empty for automatic
+server-ip=
+
+# Or set to specific interface
+server-ip=0.0.0.0
+```
+</Step>
+
+<Step title="Verify client compatibility">
+Ensure client Minecraft version matches server version
+</Step>
+
+</Steps>
+</Accordion>
+
+<Accordion title="Frequent disconnections">
+**Symptoms:**
+- Players randomly disconnect
+- "Connection lost" messages
+- "Timed out" errors
+
+**Solutions:**
+
+1. **Check server performance:**
+```bash
+# Monitor TPS
+status
+
+# Target: TPS ~20
+# If TPS < 19, optimize server performance
+```
+
+2. **Adjust network settings:**
+```yaml pocketmine.yml
+network:
+  # Increase if on poor networks
+  batch-threshold: 512
+  
+  # Decrease compression level
+  compression-level: 4
+```
+
+3. **Check for packet loss:**
+- Test network quality
+- Check player internet connection
+- Consider using better hosting
+</Accordion>
+
+<Accordion title="Xbox auth failures">
+**Symptoms:**
+- "Failed to authenticate with Xbox Live"
+- "Could not verify account"
+
+**Solutions:**
+
+1. **Verify server configuration:**
+```properties server.properties
+xbox-auth=true
+```
+
+2. **Check Xbox Live service status:**
+- Visit Xbox Live status page
+- Wait for service restoration
+
+3. **Player must be signed into Xbox:**
+- Player needs Xbox Live account
+- Must be signed in on device
+
+4. **Check encryption:**
+```yaml pocketmine.yml
+network:
+  enable-encryption: true
+```
+</Accordion>
+
+</AccordionGroup>
+
+## Performance Issues
+
+<AccordionGroup>
+
+<Accordion title="Low TPS / Server lag">
+**Symptoms:**
+- TPS below 19
+- Delayed block updates
+- Slow player movement
+
+**Diagnosis:**
+
+```bash
+# Enable timings
+timings on
+
+# Wait 5-10 minutes
+
+# Generate report
+timings paste
+```
+
+**Common causes and solutions:**
+
+<CardGroup cols={2}>
+
+<Card title="Heavy plugins" icon="puzzle-piece">
+- Identify laggy plugins in timings
+- Disable or replace problem plugins
+- Contact plugin developers
+</Card>
+
+<Card title="Too many entities" icon="dragon">
+- Reduce mob spawn rates
+- Clear entities: `clear @e[type=!player]`
+- Use entity limiting plugins
+</Card>
+
+<Card title="Large view distance" icon="eye">
+```properties
+view-distance=6  # Reduce from 12
+```
+</Card>
+
+<Card title="Expensive chunk operations" icon="cube">
+```yaml
+chunk-ticking:
+  tick-radius: 2  # Reduce from 3
+  blocks-per-subchunk-per-tick: 2
+```
+</Card>
+
+</CardGroup>
+</Accordion>
+
+<Accordion title="High memory usage">
+**Symptoms:**
+- Memory warnings in console
+- "Low memory" messages
+- Out of memory crashes
+
+**Solutions:**
+
+1. **Enable memory management:**
+```yaml pocketmine.yml
+memory:
+  main-limit: 768  # Enable soft limit
+  main-hard-limit: 1024
+  check-rate: 20
+  continuous-trigger: true
+```
+
+2. **Reduce memory usage:**
+```properties server.properties
+view-distance=6  # Lower view distance
+```
+
+```yaml pocketmine.yml
+chunk-sending:
+  per-tick: 3  # Reduce chunk loading speed
+
+memory:
+  max-chunks:
+    chunk-radius: 4  # Limit during low memory
+```
+
+3. **Check for memory leaks:**
+```bash
+# Generate memory dump
+dump memory
+
+# Review plugins for leaks
+# Remove problematic plugins
+```
+
+4. **Increase server RAM:**
+- Upgrade hosting plan
+- Increase allocated memory
+</Accordion>
+
+<Accordion title="High CPU usage">
+**Symptoms:**
+- CPU at 100%
+- System sluggishness
+- Slow server response
+
+**Solutions:**
+
+1. **Check timings report** for CPU-intensive operations
+
+2. **Optimize world generation:**
+```yaml
+settings:
+  async-workers: 4  # Match CPU cores
+
+chunk-generation:
+  population-queue-size: 16  # Reduce
+```
+
+3. **Reduce compression:**
+```yaml
+network:
+  compression-level: 4  # Lower level
+  async-compression: true  # Offload to workers
+```
+
+4. **Pre-generate worlds:**
+- Use world generation plugins
+- Generate chunks before players join
+</Accordion>
+
+</AccordionGroup>
+
+## World Issues
+
+<AccordionGroup>
+
+<Accordion title="World not loading">
+**Symptoms:**
+- "World not found" error
+- Server starts but world missing
+- Players spawn in void
+
+**Solutions:**
+
+1. **Check world directory:**
+```bash
+ls -la worlds/
+
+# Ensure world folder exists
+# Check folder name matches server.properties
+```
+
+2. **Verify configuration:**
+```properties server.properties
+level-name=world  # Must match folder name
+```
+
+3. **Check world format:**
+```yaml pocketmine.yml
+level-settings:
+  default-format: leveldb  # Or mcregion
+```
+
+4. **Restore from backup:**
+```bash
+# Copy backup to worlds directory
+cp -r backup/world worlds/
+```
+</Accordion>
+
+<Accordion title="World corruption">
+**Symptoms:**
+- Chunks not loading
+- "Failed to read chunk" errors
+- Visual glitches
+- Server crashes when loading specific areas
+
+**Solutions:**
+
+1. **Stop server immediately** to prevent further corruption
+
+2. **Backup current state:**
+```bash
+cp -r worlds/world worlds/world.backup
+```
+
+3. **Try automatic repair:**
+```bash
+# Start server, corruption may auto-fix
+# Check console for errors
+```
+
+4. **Manual region deletion:**
+```bash
+# Delete corrupted regions (LAST RESORT)
+# This deletes chunks permanently
+rm worlds/world/region/corrupted_file
+```
+
+5. **Restore from backup:**
+```bash
+rm -rf worlds/world
+cp -r backup/world worlds/
+```
+
+<Warning>
+Always maintain regular backups to recover from corruption.
+</Warning>
+</Accordion>
+
+<Accordion title="Cannot generate chunks">
+**Symptoms:**
+- Players fall through world
+- Chunks appear as void
+- "Chunk generation failed" errors
+
+**Solutions:**
+
+1. **Check generator settings:**
+```properties server.properties
+level-type=DEFAULT  # Or FLAT, VOID
+generator-settings=  # Leave empty for default
+```
+
+2. **Verify async workers:**
+```yaml pocketmine.yml
+settings:
+  async-workers: auto  # Or 2+
+```
+
+3. **Check disk space:**
+```bash
+df -h  # Ensure sufficient space
+```
+
+4. **Check permissions:**
+```bash
+chmod -R 755 worlds/
+```
+</Accordion>
+
+</AccordionGroup>
+
+## Plugin Issues
+
+<AccordionGroup>
+
+<Accordion title="Plugin won't load">
+**Symptoms:**
+- Plugin not in `plugins list`
+- "Failed to load plugin" error
+- API version mismatch
+
+**Solutions:**
+
+1. **Check API compatibility:**
+```bash
+# Server API version
+version
+
+# Plugin must support this API version
+```
+
+2. **Verify file integrity:**
+- Ensure .phar file is complete
+- Re-download plugin
+- Check file permissions
+
+3. **Check dependencies:**
+- Install required dependencies
+- Check plugin documentation
+
+4. **Review console errors:**
+```bash
+# Look for specific error messages
+tail -f server.log
+```
+</Accordion>
+
+<Accordion title="Plugin crashes server">
+**Symptoms:**
+- Server crashes when plugin loads
+- Segmentation fault
+- Fatal PHP errors
+
+**Solutions:**
+
+1. **Remove problematic plugin:**
+```bash
+mv plugins/ProblemPlugin.phar plugins/disabled/
+```
+
+2. **Update plugin:**
+- Check for updates on Poggit
+- Download latest version
+
+3. **Report bug:**
+- Contact plugin developer
+- Provide crash report
+- Include server version and logs
+
+4. **Use alternative plugin:**
+- Find replacement on Poggit
+- Test alternatives
+</Accordion>
+
+<Accordion title="Plugin conflicts">
+**Symptoms:**
+- Features not working
+- Unexpected behavior
+- Errors mentioning multiple plugins
+
+**Solutions:**
+
+1. **Test plugins individually:**
+```bash
+# Disable all plugins
+mv plugins/*.phar plugins/disabled/
+
+# Enable one at a time
+mv plugins/disabled/Plugin1.phar plugins/
+```
+
+2. **Check for conflicts:**
+- Review plugin documentation
+- Look for known conflicts
+- Contact developers
+
+3. **Adjust plugin priorities:**
+- Some plugins support load order
+- Check plugin.yml settings
+</Accordion>
+
+</AccordionGroup>
+
+## Crash Issues
+
+<AccordionGroup>
+
+<Accordion title="Understanding crash reports">
+**Location:** `crashdumps/` directory
+
+**Key information:**
+- **Error message**: What went wrong
+- **Stack trace**: Where it happened
+- **Plugin list**: Active plugins
+- **Server version**: PocketMine-MP version
+
+**Automatic reporting:**
+```yaml pocketmine.yml
+auto-report:
+  enabled: true  # Sends crash reports to PMMP team
+  send-code: true
+  send-settings: true
+```
+</Accordion>
+
+<Accordion title="Recurring crashes">
+**Steps to diagnose:**
+
+<Steps>
+
+<Step title="Review crash dumps">
+Check `crashdumps/` for patterns
+</Step>
+
+<Step title="Disable plugins">
+Test with plugins disabled
+</Step>
+
+<Step title="Update server">
+Ensure running latest stable version
+</Step>
+
+<Step title="Check resources">
+Monitor RAM, CPU, disk space
+</Step>
+
+<Step title="Review timings">
+Identify performance bottlenecks
+</Step>
+
+<Step title="Report bug">
+If PocketMine-MP bug, report to GitHub Security (if security-related) or Issues
+</Step>
+
+</Steps>
+</Accordion>
+
+<Accordion title="Out of memory crashes">
+**Solutions:**
+
+1. **Increase memory limit:**
+```yaml pocketmine.yml
+memory:
+  main-hard-limit: 2048  # Increase
+```
+
+2. **Enable memory management:**
+```yaml
+memory:
+  main-limit: 1536  # Enable soft limit
+  continuous-trigger: true
+```
+
+3. **Reduce memory usage:**
+- Lower view distance
+- Remove heavy plugins
+- Reduce player count
+- Clear entities regularly
+
+4. **Upgrade hosting:**
+- Get more RAM
+- Use dedicated server
+</Accordion>
+
+</AccordionGroup>
+
+## Getting Help
+
+If you can't resolve your issue:
+
+<CardGroup cols={2}>
+
+<Card title="Discord" icon="discord" href="https://discord.gg/bmSAZBG">
+Join the official PocketMine-MP Discord server for community support
+</Card>
+
+<Card title="Stack Overflow" icon="stack-overflow">
+Ask questions tagged with `pocketmine` on Stack Overflow
+</Card>
+
+<Card title="GitHub Issues" icon="github" href="https://github.com/pmmp/PocketMine-MP/issues">
+Report bugs on GitHub (not for support questions)
+</Card>
+
+<Card title="Documentation" icon="book" href="https://pmmp.readthedocs.io">
+Read the official PocketMine-MP documentation
+</Card>
+
+</CardGroup>
+
+### Information to Provide
+
+When asking for help, include:
+
+<Steps>
+
+<Step title="Server version">
+```bash
+version
+# Output: This server is running PocketMine-MP version ...
+```
+</Step>
+
+<Step title="PHP version">
+```bash
+php -v
+```
+</Step>
+
+<Step title="Operating system">
+- Linux distribution and version
+- Windows version
+- macOS version
+</Step>
+
+<Step title="Error messages">
+Copy exact error messages from console
+</Step>
+
+<Step title="Crash dumps">
+Upload relevant crash dump files
+</Step>
+
+<Step title="Plugin list">
+```bash
+plugins
+```
+</Step>
+
+<Step title="Configuration">
+Relevant parts of server.properties or pocketmine.yml
+</Step>
+
+<Step title="Steps to reproduce">
+Exactly how to trigger the issue
+</Step>
+
+</Steps>
+
+<Warning>
+**Do not share sensitive information:**
+- ops.txt contents
+- API keys or passwords
+- Player data
+- Full server IP addresses
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Performance" icon="gauge-high" href="/admin/performance">
+Optimize server performance
+</Card>
+
+<Card title="Configuration" icon="gear" href="/admin/configuration">
+Review configuration options
+</Card>
+
+</CardGroup>

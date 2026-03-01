@@ -1,0 +1,520 @@
+---
+title: Security Best Practices
+description: Secure your PocketMine-MP server against common threats and vulnerabilities
+---
+
+Security should be a top priority when running a public Minecraft server. PocketMine-MP includes several security features, but proper configuration is essential.
+
+## Authentication
+
+### Xbox Live Authentication
+
+Xbox Live authentication verifies player identities and prevents impersonation.
+
+```properties server.properties
+# Require Xbox Live authentication
+xbox-auth=true
+```
+
+<Warning>
+**NEVER disable xbox-auth on public servers.** Disabling authentication allows players to:
+- Impersonate other players
+- Bypass username-based bans
+- Access other players' data
+- Steal admin accounts
+</Warning>
+
+### XUID Verification
+
+```yaml pocketmine.yml
+player:
+  # Verify Xbox User ID matches previous records
+  verify-xuid: true
+```
+
+This prevents non-XBL players from using XBL players' usernames when `xbox-auth=false`.
+
+<Note>
+Keep `verify-xuid` enabled even if you disable Xbox authentication to maintain some identity consistency.
+</Note>
+
+## Network Security
+
+### Encryption
+
+```yaml pocketmine.yml
+network:
+  # Enable packet encryption
+  enable-encryption: true
+```
+
+<Warning>
+Disabling encryption makes your server vulnerable to:
+- Session hijacking
+- Man-in-the-middle attacks
+- Packet sniffing
+- Player session theft
+
+**Only disable for local testing on trusted networks.**
+</Warning>
+
+### Port Configuration
+
+In `server.properties`:
+
+```properties
+# IPv4 port
+server-port=19132
+
+# IPv6 port
+server-portv6=19133
+
+# Server IP (leave empty for all interfaces)
+server-ip=
+server-ipv6=
+```
+
+<Tip>
+For production servers:
+- Use standard ports (19132/19133) for easy client connection
+- Keep `server-ip` empty unless you need to bind to specific interface
+- Use firewall rules instead of non-standard ports for security
+</Tip>
+
+### Firewall Configuration
+
+Always use a firewall to protect your server:
+
+<CodeGroup>
+
+```bash UFW (Ubuntu/Debian)
+# Allow PocketMine-MP ports
+sudo ufw allow 19132/udp
+sudo ufw allow 19133/udp
+
+# Enable firewall
+sudo ufw enable
+```
+
+```bash Firewalld (CentOS/RHEL)
+# Allow PocketMine-MP ports
+sudo firewall-cmd --permanent --add-port=19132/udp
+sudo firewall-cmd --permanent --add-port=19133/udp
+
+# Reload firewall
+sudo firewall-cmd --reload
+```
+
+```bash Windows Firewall
+# PowerShell (run as Administrator)
+New-NetFirewallRule -DisplayName "PocketMine-MP" -Direction Inbound -Protocol UDP -LocalPort 19132,19133 -Action Allow
+```
+
+</CodeGroup>
+
+<Info>
+PocketMine-MP uses UDP, not TCP. Ensure your firewall rules use the correct protocol.
+</Info>
+
+## Access Control
+
+### Whitelist
+
+The whitelist allows only approved players to join:
+
+```properties server.properties
+# Enable whitelist
+white-list=true
+```
+
+#### Managing Whitelist
+
+<Tabs>
+
+<Tab title="Commands">
+```bash
+# Add player
+whitelist add PlayerName
+
+# Remove player
+whitelist remove PlayerName
+
+# List whitelisted players
+whitelist list
+
+# Reload whitelist from file
+whitelist reload
+
+# Enable/disable
+whitelist on
+whitelist off
+```
+</Tab>
+
+<Tab title="File (whitelist.json)">
+```json
+[
+  {
+    "name": "PlayerName",
+    "uuid": "unique-player-uuid"
+  },
+  {
+    "name": "AnotherPlayer",
+    "uuid": "another-uuid"
+  }
+]
+```
+</Tab>
+
+</Tabs>
+
+<Tip>
+Use whitelist for:
+- Private servers
+- Testing environments
+- Application-based communities
+- Early access/beta testing
+</Tip>
+
+### Operator Permissions
+
+Operators (ops) have full server control. Manage carefully:
+
+```bash
+# Add operator
+op PlayerName
+
+# Remove operator
+deop PlayerName
+
+# List operators
+op list
+```
+
+<Warning>
+Only give op to trusted players. Operators can:
+- Execute any command
+- Bypass permissions
+- Stop the server
+- Modify worlds
+- Access player data
+</Warning>
+
+### ops.txt
+
+Operators are stored in `ops.txt`:
+
+```txt
+PlayerName1
+PlayerName2
+TrustedAdmin
+```
+
+<Note>
+For advanced permission management, use a permissions plugin like PurePerms.
+</Note>
+
+## Server Console Security
+
+### Console Access
+
+```yaml pocketmine.yml
+console:
+  # Accept console commands
+  enable-input: true
+```
+
+<Warning>
+If running in a shared environment, consider:
+- Disabling `enable-input` on production
+- Using RCON for remote management
+- Implementing proper user access controls
+</Warning>
+
+### Remote Console (RCON)
+
+For secure remote administration, use RCON with proper authentication.
+
+<Info>
+PocketMine-MP doesn't include built-in RCON. Use third-party plugins or implement SSH access with proper key authentication.
+</Info>
+
+## Plugin Security
+
+### Plugin Sources
+
+<AccordionGroup>
+
+<Accordion title="Use trusted sources only">
+Only download plugins from:
+- [Poggit](https://poggit.pmmp.io/) (official repository)
+- Verified GitHub repositories
+- Trusted developer websites
+
+**Never install plugins from:**
+- Unknown forums
+- File sharing sites
+- Unofficial "hacked" or "cracked" versions
+</Accordion>
+
+<Accordion title="Review permissions">
+Before installing, check what the plugin can do:
+- File system access
+- Network connections
+- Command execution
+- Database access
+</Accordion>
+
+<Accordion title="Keep plugins updated">
+Regularly update plugins to receive:
+- Security patches
+- Bug fixes
+- Compatibility updates
+</Accordion>
+
+<Accordion title="Remove unused plugins">
+Disabled plugins still load code. Completely remove plugins you don't use.
+</Accordion>
+
+</AccordionGroup>
+
+### Plugin Data Directory
+
+```yaml pocketmine.yml
+plugins:
+  # Use modern plugin data structure
+  legacy-data-dir: false
+```
+
+<Note>
+Keep `legacy-data-dir: false` for better security and data separation.
+</Note>
+
+## File System Security
+
+### File Permissions
+
+Set proper file permissions on Linux/Unix:
+
+```bash
+# Server directory
+chmod 755 /path/to/server
+
+# Configuration files
+chmod 644 server.properties pocketmine.yml
+
+# Plugin directory
+chmod 755 plugins/
+chmod 644 plugins/*.phar
+
+# World directories
+chmod 755 worlds/
+
+# Prevent writing to PocketMine-MP binary
+chmod 555 PocketMine-MP.phar
+```
+
+### Sensitive Files
+
+<Warning>
+**Never commit these files to version control:**
+- `ops.txt` - Operator list
+- `whitelist.json` - Player whitelist
+- `banned-players.txt` - Ban list
+- `banned-ips.txt` - IP ban list
+- Plugin configuration files with API keys/passwords
+- World save data
+</Warning>
+
+Add to `.gitignore`:
+
+```gitignore .gitignore
+ops.txt
+whitelist.json
+banned-*.txt
+player_data/
+worlds/
+plugins/*/config.yml
+*.log
+```
+
+## Vulnerability Reporting
+
+If you discover a security vulnerability in PocketMine-MP:
+
+<Steps>
+
+<Step title="Do NOT post publicly">
+Never report vulnerabilities on:
+- GitHub Issues (public)
+- Discord
+- Forums
+- Social media
+</Step>
+
+<Step title="Report privately">
+Use one of these methods:
+
+**GitHub Security Advisories:**
+1. Go to https://github.com/pmmp/PocketMine-MP/security
+2. Click "Report a vulnerability"
+3. Fill out the form with details
+
+**Email:**
+Send to [security@pmmp.io](mailto:security@pmmp.io) with:
+- PocketMine-MP version
+- Detailed vulnerability description
+- Exploitation steps
+- Your GitHub username (for credit)
+</Step>
+
+<Step title="Wait for response">
+The team will:
+- Acknowledge receipt
+- Investigate the issue
+- Develop a fix
+- Release a patch
+- Credit you in the security advisory (if desired)
+</Step>
+
+</Steps>
+
+<Info>
+PocketMine-MP does not offer bug bounties, but responsible disclosure is appreciated.
+</Info>
+
+## Security Checklist
+
+<Steps>
+
+<Step title="Enable Xbox authentication">
+`xbox-auth=true` in server.properties
+</Step>
+
+<Step title="Enable encryption">
+`enable-encryption: true` in pocketmine.yml
+</Step>
+
+<Step title="Configure firewall">
+Only allow necessary ports (19132/UDP, 19133/UDP)
+</Step>
+
+<Step title="Use whitelist (if appropriate)">
+For private servers, enable `white-list=true`
+</Step>
+
+<Step title="Limit operator access">
+Only op trusted administrators
+</Step>
+
+<Step title="Install plugins from trusted sources">
+Use Poggit or verified repositories only
+</Step>
+
+<Step title="Set proper file permissions">
+Restrict write access to configuration files
+</Step>
+
+<Step title="Keep server updated">
+Regularly update to latest stable version
+</Step>
+
+<Step title="Monitor logs">
+Regularly check server.log for suspicious activity
+</Step>
+
+<Step title="Backup regularly">
+Maintain backups of worlds and configurations
+</Step>
+
+</Steps>
+
+## DDoS Protection
+
+### Server-level Protection
+
+PocketMine-MP has limited built-in DDoS protection. For production servers:
+
+<CardGroup cols={2}>
+
+<Card title="Use DDoS Protection Service" icon="shield">
+Services like:
+- Cloudflare Spectrum
+- TCPShield
+- Path.net
+- OVH Game DDoS Protection
+</Card>
+
+<Card title="Rate Limiting" icon="gauge">
+Implement connection rate limiting:
+- Firewall rules
+- Plugin-based protection
+- Network-level filtering
+</Card>
+
+</CardGroup>
+
+### Connection Limiting
+
+Limit connections per IP using firewall rules:
+
+```bash iptables
+# Limit connections from single IP
+iptables -A INPUT -p udp --dport 19132 -m connlimit --connlimit-above 3 -j DROP
+```
+
+## Backup and Recovery
+
+### Regular Backups
+
+Backup critical files regularly:
+
+```bash
+# What to backup
+- worlds/
+- plugins/
+- server.properties
+- pocketmine.yml
+- ops.txt
+- whitelist.json
+- banned-*.txt
+```
+
+<Tip>
+Automate backups with:
+- Cron jobs (Linux)
+- Task Scheduler (Windows)
+- Backup plugins
+- Server management panels
+</Tip>
+
+### Backup Script Example
+
+```bash backup.sh
+#!/bin/bash
+DATE=$(date +%Y-%m-%d_%H-%M-%S)
+BACKUP_DIR="/path/to/backups"
+SERVER_DIR="/path/to/server"
+
+# Create backup
+tar -czf "$BACKUP_DIR/backup-$DATE.tar.gz" \
+  -C "$SERVER_DIR" \
+  worlds/ plugins/ server.properties pocketmine.yml ops.txt whitelist.json
+
+# Keep only last 7 days
+find "$BACKUP_DIR" -name "backup-*.tar.gz" -mtime +7 -delete
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Configuration" icon="gear" href="/admin/configuration">
+Review security-related configuration options
+</Card>
+
+<Card title="Updating" icon="arrow-up" href="/admin/updating">
+Learn how to safely update your server
+</Card>
+
+</CardGroup>

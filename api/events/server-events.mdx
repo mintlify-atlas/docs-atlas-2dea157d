@@ -1,0 +1,482 @@
+---
+title: Server Events
+description: Events related to server operations, networking, commands, and server lifecycle
+---
+
+Server events are fired for server-level operations like networking, commands, and server management. All server events extend the `ServerEvent` base class.
+
+## ServerEvent Base Class
+
+All server events inherit from this abstract class. It has no additional methods beyond the base `Event` class.
+
+## Command Events
+
+<Accordion title="CommandEvent">
+  **Cancellable:** Yes
+  
+  Called when any CommandSender runs a command, before it is parsed.
+  
+  **Warning:** Do NOT use this to block commands. Use permissions instead. Many commands have aliases (e.g., `/version`, `/ver`, `/about`).
+  
+  ```php
+  public function onCommand(CommandEvent $event) : void {
+      $sender = $event->getSender();
+      $command = $event->getCommand();
+      
+      // Log all commands
+      $this->getLogger()->info($sender->getName() . " executed: /" . $command);
+      
+      // Preprocess command to add custom features
+      if (str_starts_with($command, "@a ")) {
+          // Custom selector: @a for all players
+          $newCommand = str_replace("@a", $this->getAllPlayerNames(), $command);
+          $event->setCommand($newCommand);
+      }
+      
+      // Cancel specific commands (use permissions instead when possible)
+      if ($command === "stop" && !$sender->hasPermission("server.stop")) {
+          $event->cancel();
+          $sender->sendMessage("You don't have permission to stop the server");
+      }
+  }
+  ```
+  
+  **Note:** The command string does NOT begin with a slash.
+  
+  **Methods:**
+  - `getSender()` - Returns the CommandSender executing the command
+  - `getCommand()` - Returns the command string (without leading slash)
+  - `setCommand(string $command)` - Modifies the command string
+</Accordion>
+
+## Network Events
+
+<Accordion title="DataPacketReceiveEvent">
+  **Cancellable:** Yes
+  
+  Called when the server receives a packet from a client.
+  
+  ```php
+  public function onPacketReceive(DataPacketReceiveEvent $event) : void {
+      $packet = $event->getPacket();
+      $origin = $event->getOrigin();
+      
+      // Log specific packets
+      if ($packet instanceof PlayerAuthInputPacket) {
+          // Handle player input packet
+      }
+      
+      // Cancel packet processing
+      if ($this->isRateLimited($origin)) {
+          $event->cancel();
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getPacket()` - Returns the ClientboundPacket
+  - `getOrigin()` - Returns the NetworkSession that sent the packet
+</Accordion>
+
+<Accordion title="DataPacketSendEvent">
+  **Cancellable:** Yes
+  
+  Called when the server sends a packet to a client.
+  
+  ```php
+  public function onPacketSend(DataPacketSendEvent $event) : void {
+      $packets = $event->getPackets();
+      $targets = $event->getTargets();
+      
+      // Modify packets before sending
+      foreach ($packets as $packet) {
+          if ($packet instanceof SetTitlePacket) {
+              // Intercept title packets
+          }
+      }
+      
+      // Cancel sending to specific players
+      $filteredTargets = array_filter($targets, function($session) {
+          return !$this->isBlocked($session);
+      });
+      $event->setTargets($filteredTargets);
+  }
+  ```
+  
+  **Methods:**
+  - `getPackets()` - Returns array of ServerboundPackets
+  - `getTargets()` - Returns array of NetworkSessions receiving packets
+  - `setTargets(array $targets)` - Sets which sessions receive the packets
+</Accordion>
+
+<Accordion title="DataPacketDecodeEvent">
+  **Cancellable:** Yes
+  
+  Called after a packet is decoded but before it's handled.
+  
+  ```php
+  public function onPacketDecode(DataPacketDecodeEvent $event) : void {
+      $packet = $event->getPacket();
+      $origin = $event->getOrigin();
+      
+      // Validate packet data
+      if ($packet instanceof InteractPacket) {
+          // Check for invalid interactions
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getPacket()` - Returns the decoded packet
+  - `getOrigin()` - Returns the NetworkSession
+</Accordion>
+
+## Network Interface Events
+
+<Accordion title="NetworkInterfaceRegisterEvent">
+  **Cancellable:** No
+  
+  Called when a network interface is registered.
+  
+  ```php
+  public function onInterfaceRegister(NetworkInterfaceRegisterEvent $event) : void {
+      $interface = $event->getInterface();
+      
+      $this->getLogger()->info(
+          "Network interface registered: " . get_class($interface)
+      );
+  }
+  ```
+  
+  **Methods:**
+  - `getInterface()` - Returns the NetworkInterface being registered
+</Accordion>
+
+<Accordion title="NetworkInterfaceUnregisterEvent">
+  **Cancellable:** No
+  
+  Called when a network interface is unregistered.
+  
+  **Methods:**
+  - `getInterface()` - Returns the NetworkInterface being unregistered
+</Accordion>
+
+## Server Management Events
+
+<Accordion title="QueryRegenerateEvent">
+  **Cancellable:** No
+  
+  Called when server query information is regenerated. Allows customization of query response.
+  
+  ```php
+  public function onQueryRegenerate(QueryRegenerateEvent $event) : void {
+      $server = $event->getServer();
+      
+      // Customize query information
+      $event->setServerName("§l§6My Awesome Server");
+      $event->setListPlugins(false); // Hide plugin list
+      $event->setPlayerCount(count($server->getOnlinePlayers()));
+      $event->setMaxPlayerCount($server->getMaxPlayers());
+      
+      // Set custom player list
+      $playerNames = array_map(
+          fn($p) => $p->getName(),
+          $server->getOnlinePlayers()
+      );
+      $event->setPlayerList($playerNames);
+  }
+  ```
+  
+  **Methods:**
+  - `getServer()` - Returns the Server instance
+  - `getServerName()` - Returns server name in query
+  - `setServerName(string $name)` - Sets server name
+  - `getListPlugins()` - Returns whether plugins are listed
+  - `setListPlugins(bool $list)` - Sets whether to list plugins
+  - `getPlugins()` - Returns plugin array
+  - `setPlugins(array $plugins)` - Sets plugin list
+  - `getPlayerCount()` - Returns player count
+  - `setPlayerCount(int $count)` - Sets player count
+  - `getMaxPlayerCount()` - Returns max players
+  - `setMaxPlayerCount(int $count)` - Sets max players
+  - `getPlayerList()` - Returns player name array
+  - `setPlayerList(array $players)` - Sets player list
+  - `getWorld()` - Returns default world name
+  - `setWorld(string $world)` - Sets world name
+</Accordion>
+
+<Accordion title="UpdateNotifyEvent">
+  **Cancellable:** No
+  
+  Called when a PocketMine-MP update is available.
+  
+  ```php
+  public function onUpdateNotify(UpdateNotifyEvent $event) : void {
+      $updateInfo = $event->getUpdateInfo();
+      
+      // Notify operators about update
+      foreach ($this->getServer()->getOnlinePlayers() as $player) {
+          if ($player->hasPermission("pocketmine.update.notify")) {
+              $player->sendMessage(
+                  "§eA new PocketMine-MP update is available: " .
+                  $updateInfo->getNewVersion()
+              );
+          }
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getUpdateInfo()` - Returns UpdateInfo object with update details
+</Accordion>
+
+<Accordion title="LowMemoryEvent">
+  **Cancellable:** No
+  
+  Called when the server detects low memory.
+  
+  ```php
+  public function onLowMemory(LowMemoryEvent $event) : void {
+      $memory = $event->getMemory();
+      $memoryLimit = $event->getMemoryLimit();
+      $global = $event->isGlobal();
+      
+      $this->getLogger()->warning(
+          "Low memory detected: Using {$memory} bytes of {$memoryLimit} bytes"
+      );
+      
+      // Perform cleanup
+      if ($global) {
+          // Trigger garbage collection
+          gc_collect_cycles();
+          
+          // Unload unused worlds
+          $this->unloadUnusedWorlds();
+          
+          // Clear caches
+          $this->clearCaches();
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getMemory()` - Returns current memory usage in bytes
+  - `getMemoryLimit()` - Returns memory limit in bytes
+  - `getTriggerCount()` - Returns how many times this has been triggered
+  - `isGlobal()` - Returns whether this is a global memory issue
+</Accordion>
+
+## Usage Examples
+
+### Command Logger
+
+```php
+use pocketmine\event\Listener;
+use pocketmine\event\server\CommandEvent;
+use pocketmine\player\Player;
+
+class CommandLogger implements Listener {
+    
+    private array $commandLog = [];
+    
+    public function onCommand(CommandEvent $event) : void {
+        $sender = $event->getSender();
+        $command = $event->getCommand();
+        
+        $logEntry = [
+            'time' => time(),
+            'sender' => $sender->getName(),
+            'command' => $command,
+            'is_player' => $sender instanceof Player
+        ];
+        
+        $this->commandLog[] = $logEntry;
+        
+        // Save to file periodically
+        if (count($this->commandLog) >= 100) {
+            $this->saveLogToFile();
+            $this->commandLog = [];
+        }
+    }
+    
+    private function saveLogToFile() : void {
+        // Save log entries to file
+    }
+}
+```
+
+### Custom Query Response
+
+```php
+use pocketmine\event\server\QueryRegenerateEvent;
+
+public function onQueryRegenerate(QueryRegenerateEvent $event) : void {
+    $server = $event->getServer();
+    
+    // Custom server name with formatting
+    $event->setServerName("§l§6MyServer §r§7[§a" . count($server->getOnlinePlayers()) . "§7]");
+    
+    // Hide plugins from query
+    $event->setListPlugins(false);
+    
+    // Show custom player list
+    $players = [];
+    foreach ($server->getOnlinePlayers() as $player) {
+        // Don't show vanished players
+        if (!$player->hasTag("vanished")) {
+            $players[] = $player->getName();
+        }
+    }
+    $event->setPlayerList($players);
+    $event->setPlayerCount(count($players));
+}
+```
+
+### Packet Anti-Spam
+
+```php
+use pocketmine\event\server\DataPacketReceiveEvent;
+use pocketmine\network\mcpe\protocol\PlayerAuthInputPacket;
+
+class PacketAntiSpam implements Listener {
+    
+    private array $packetCounts = [];
+    private int $maxPacketsPerSecond = 100;
+    
+    public function onPacketReceive(DataPacketReceiveEvent $event) : void {
+        $origin = $event->getOrigin();
+        $player = $origin->getPlayer();
+        
+        if ($player === null) {
+            return;
+        }
+        
+        $playerName = $player->getName();
+        $currentTime = time();
+        
+        // Initialize tracking
+        if (!isset($this->packetCounts[$playerName])) {
+            $this->packetCounts[$playerName] = [
+                'count' => 0,
+                'second' => $currentTime
+            ];
+        }
+        
+        $data = &$this->packetCounts[$playerName];
+        
+        // Reset counter every second
+        if ($data['second'] !== $currentTime) {
+            $data['count'] = 0;
+            $data['second'] = $currentTime;
+        }
+        
+        $data['count']++;
+        
+        // Rate limit
+        if ($data['count'] > $this->maxPacketsPerSecond) {
+            $event->cancel();
+            
+            if ($data['count'] === $this->maxPacketsPerSecond + 1) {
+                $player->kick("Packet spam detected");
+            }
+        }
+    }
+}
+```
+
+### Memory Management
+
+```php
+use pocketmine\event\server\LowMemoryEvent;
+use pocketmine\world\World;
+
+public function onLowMemory(LowMemoryEvent $event) : void {
+    $server = $this->getServer();
+    
+    if (!$event->isGlobal()) {
+        return; // Only handle global memory issues
+    }
+    
+    $this->getLogger()->warning(
+        "Low memory detected (Trigger #{$event->getTriggerCount()})! " .
+        "Using {$event->getMemory()} of {$event->getMemoryLimit()} bytes"
+    );
+    
+    // 1. Trigger garbage collection
+    gc_collect_cycles();
+    
+    // 2. Unload empty worlds
+    $defaultWorld = $server->getWorldManager()->getDefaultWorld();
+    foreach ($server->getWorldManager()->getWorlds() as $world) {
+        if ($world === $defaultWorld) {
+            continue; // Never unload default world
+        }
+        
+        if (count($world->getPlayers()) === 0) {
+            $server->getWorldManager()->unloadWorld($world);
+            $this->getLogger()->info("Unloaded empty world: {$world->getFolderName()}");
+        }
+    }
+    
+    // 3. Clear plugin caches
+    $this->clearInternalCaches();
+    
+    $this->getLogger()->info("Memory cleanup complete");
+}
+```
+
+### Update Notification System
+
+```php
+use pocketmine\event\server\UpdateNotifyEvent;
+use pocketmine\event\player\PlayerJoinEvent;
+
+class UpdateNotifier implements Listener {
+    
+    private ?string $latestVersion = null;
+    
+    public function onUpdateNotify(UpdateNotifyEvent $event) : void {
+        $updateInfo = $event->getUpdateInfo();
+        $this->latestVersion = $updateInfo->getNewVersion();
+        
+        // Broadcast to online operators
+        $server = $this->plugin->getServer();
+        foreach ($server->getOnlinePlayers() as $player) {
+            if ($player->hasPermission("pocketmine.update.notify")) {
+                $player->sendMessage(
+                    "§e[Update] A new PocketMine-MP version is available: {$this->latestVersion}"
+                );
+            }
+        }
+    }
+    
+    public function onPlayerJoin(PlayerJoinEvent $event) : void {
+        $player = $event->getPlayer();
+        
+        // Notify operators on join
+        if ($this->latestVersion !== null && 
+            $player->hasPermission("pocketmine.update.notify")) {
+            
+            $player->sendMessage(
+                "§e[Update] PocketMine-MP {$this->latestVersion} is available!"
+            );
+        }
+    }
+}
+```
+
+## Complete Server Event List
+
+All server-related events:
+
+- `CommandEvent` - Command is executed
+- `DataPacketDecodeEvent` - Packet is decoded
+- `DataPacketReceiveEvent` - Packet is received from client
+- `DataPacketSendEvent` - Packet is sent to client
+- `LowMemoryEvent` - Low memory detected
+- `NetworkInterfaceEvent` - Base for network interface events
+- `NetworkInterfaceRegisterEvent` - Network interface registered
+- `NetworkInterfaceUnregisterEvent` - Network interface unregistered
+- `QueryRegenerateEvent` - Server query info regenerated
+- `ServerEvent` - Base class for server events
+- `UpdateNotifyEvent` - Update is available

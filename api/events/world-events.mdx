@@ -1,0 +1,435 @@
+---
+title: World Events
+description: Events related to world loading, chunks, spawns, and world changes
+---
+
+World events are fired when worlds change state or chunks are loaded/unloaded. All world events extend the `WorldEvent` base class.
+
+## WorldEvent Base Class
+
+All world events inherit from this class:
+
+<ParamField path="getWorld()" type="World">
+  Returns the world involved in the event
+</ParamField>
+
+## World Lifecycle Events
+
+<Accordion title="WorldInitEvent">
+  **Cancellable:** No
+  
+  Called when a world is initialized (first loaded).
+  
+  ```php
+  public function onWorldInit(WorldInitEvent $event) : void {
+      $world = $event->getWorld();
+      
+      // Set up world-specific configuration
+      $world->setTime(World::TIME_DAY);
+      $world->stopTime();
+      
+      $this->getLogger()->info("World initialized: " . $world->getDisplayName());
+  }
+  ```
+</Accordion>
+
+<Accordion title="WorldLoadEvent">
+  **Cancellable:** No
+  
+  Called when a world is loaded.
+  
+  ```php
+  public function onWorldLoad(WorldLoadEvent $event) : void {
+      $world = $event->getWorld();
+      
+      // Apply world settings
+      $world->setDifficulty(World::DIFFICULTY_HARD);
+      
+      $this->getLogger()->info("World loaded: " . $world->getFolderName());
+  }
+  ```
+</Accordion>
+
+<Accordion title="WorldUnloadEvent">
+  **Cancellable:** Yes
+  
+  Called when a world is about to be unloaded.
+  
+  ```php
+  public function onWorldUnload(WorldUnloadEvent $event) : void {
+      $world = $event->getWorld();
+      
+      // Prevent unloading spawn world
+      if ($world->getFolderName() === "world") {
+          $event->cancel();
+          return;
+      }
+      
+      // Save custom world data before unload
+      $this->saveWorldData($world);
+  }
+  ```
+</Accordion>
+
+<Accordion title="WorldSaveEvent">
+  **Cancellable:** No
+  
+  Called when a world is saved to disk.
+  
+  ```php
+  public function onWorldSave(WorldSaveEvent $event) : void {
+      $world = $event->getWorld();
+      
+      // Perform custom save operations
+      $this->saveCustomWorldData($world);
+      
+      $this->getLogger()->info("World saved: " . $world->getFolderName());
+  }
+  ```
+</Accordion>
+
+## Chunk Events
+
+Chunk events extend `ChunkEvent` which extends `WorldEvent`:
+
+<ParamField path="getChunkX()" type="int">
+  Returns the chunk X coordinate
+</ParamField>
+
+<ParamField path="getChunkZ()" type="int">
+  Returns the chunk Z coordinate
+</ParamField>
+
+<ParamField path="getChunk()" type="Chunk">
+  Returns the chunk object
+</ParamField>
+
+<Accordion title="ChunkLoadEvent">
+  **Cancellable:** No
+  
+  Called when a chunk is loaded or newly generated.
+  
+  ```php
+  public function onChunkLoad(ChunkLoadEvent $event) : void {
+      $world = $event->getWorld();
+      $chunkX = $event->getChunkX();
+      $chunkZ = $event->getChunkZ();
+      $chunk = $event->getChunk();
+      
+      if ($event->isNewChunk()) {
+          // Chunk was just generated
+          $this->populateCustomStructures($chunk, $world);
+      } else {
+          // Chunk was loaded from disk
+          $this->loadChunkData($chunkX, $chunkZ);
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `isNewChunk()` - Returns true if chunk was newly generated, false if loaded from storage
+</Accordion>
+
+<Accordion title="ChunkUnloadEvent">
+  **Cancellable:** Yes
+  
+  Called when a chunk is about to be unloaded.
+  
+  ```php
+  public function onChunkUnload(ChunkUnloadEvent $event) : void {
+      $world = $event->getWorld();
+      $chunkX = $event->getChunkX();
+      $chunkZ = $event->getChunkZ();
+      
+      // Prevent spawn chunk from unloading
+      if ($this->isSpawnChunk($world, $chunkX, $chunkZ)) {
+          $event->cancel();
+          return;
+      }
+      
+      // Save chunk-specific data
+      $this->saveChunkData($chunkX, $chunkZ);
+  }
+  ```
+</Accordion>
+
+<Accordion title="ChunkPopulateEvent">
+  **Cancellable:** No
+  
+  Called when a chunk is populated with decorations (trees, ores, etc.).
+  
+  ```php
+  public function onChunkPopulate(ChunkPopulateEvent $event) : void {
+      $world = $event->getWorld();
+      $chunkX = $event->getChunkX();
+      $chunkZ = $event->getChunkZ();
+      $chunk = $event->getChunk();
+      
+      // Add custom structures during population
+      $this->addCustomOres($chunk, $world, $chunkX, $chunkZ);
+      $this->spawnCustomMobs($world, $chunkX, $chunkZ);
+  }
+  ```
+</Accordion>
+
+## World Property Events
+
+<Accordion title="SpawnChangeEvent">
+  **Cancellable:** No
+  
+  Called when a world's spawn position changes.
+  
+  ```php
+  public function onSpawnChange(SpawnChangeEvent $event) : void {
+      $world = $event->getWorld();
+      $previousSpawn = $event->getPreviousSpawn();
+      $newSpawn = $world->getSpawnLocation();
+      
+      $this->getLogger()->info(
+          "Spawn changed in {$world->getFolderName()}: " .
+          "({$previousSpawn->x}, {$previousSpawn->y}, {$previousSpawn->z}) -> " .
+          "({$newSpawn->x}, {$newSpawn->y}, {$newSpawn->z})"
+      );
+  }
+  ```
+  
+  **Methods:**
+  - `getPreviousSpawn()` - Returns the previous spawn position
+</Accordion>
+
+<Accordion title="WorldDifficultyChangeEvent">
+  **Cancellable:** No
+  
+  Called when a world's difficulty changes.
+  
+  ```php
+  public function onDifficultyChange(WorldDifficultyChangeEvent $event) : void {
+      $world = $event->getWorld();
+      $oldDifficulty = $event->getOldDifficulty();
+      $newDifficulty = $event->getNewDifficulty();
+      
+      $difficultyNames = [
+          World::DIFFICULTY_PEACEFUL => "Peaceful",
+          World::DIFFICULTY_EASY => "Easy",
+          World::DIFFICULTY_NORMAL => "Normal",
+          World::DIFFICULTY_HARD => "Hard"
+      ];
+      
+      $this->getLogger()->info(
+          "Difficulty changed in {$world->getFolderName()}: " .
+          "{$difficultyNames[$oldDifficulty]} -> {$difficultyNames[$newDifficulty]}"
+      );
+  }
+  ```
+  
+  **Methods:**
+  - `getOldDifficulty()` - Returns the previous difficulty
+  - `getNewDifficulty()` - Returns the new difficulty
+</Accordion>
+
+<Accordion title="WorldDisplayNameChangeEvent">
+  **Cancellable:** No
+  
+  Called when a world's display name changes.
+  
+  ```php
+  public function onDisplayNameChange(WorldDisplayNameChangeEvent $event) : void {
+      $world = $event->getWorld();
+      $oldName = $event->getOldName();
+      $newName = $event->getNewName();
+      
+      $this->getLogger()->info(
+          "World display name changed: {$oldName} -> {$newName}"
+      );
+  }
+  ```
+  
+  **Methods:**
+  - `getOldName()` - Returns the previous display name
+  - `getNewName()` - Returns the new display name
+</Accordion>
+
+## Audio-Visual Events
+
+<Accordion title="WorldSoundEvent">
+  **Cancellable:** Yes
+  
+  Called when a sound is played in a world.
+  
+  ```php
+  public function onWorldSound(WorldSoundEvent $event) : void {
+      $sound = $event->getSound();
+      $position = $event->getPosition();
+      $recipients = $event->getRecipients();
+      
+      // Filter recipients
+      $filteredRecipients = array_filter($recipients, function($player) {
+          return $player->hasPermission("myplugin.hear_sounds");
+      });
+      
+      $event->setRecipients($filteredRecipients);
+      
+      // Cancel specific sounds
+      if ($sound instanceof ExplodeSoundclass) {
+          $event->cancel();
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getSound()` - Returns the Sound object
+  - `getPosition()` - Returns the Vector3 position where sound plays
+  - `getRecipients()` - Returns array of Players who will hear the sound
+  - `setRecipients(array $recipients)` - Sets who will hear the sound
+</Accordion>
+
+<Accordion title="WorldParticleEvent">
+  **Cancellable:** Yes
+  
+  Called when particles are spawned in a world.
+  
+  ```php
+  public function onWorldParticle(WorldParticleEvent $event) : void {
+      $particle = $event->getParticle();
+      $position = $event->getPosition();
+      $recipients = $event->getRecipients();
+      
+      // Cancel particle for specific players
+      $filteredRecipients = array_filter($recipients, function($player) {
+          return !$player->hasTag("no_particles");
+      });
+      
+      $event->setRecipients($filteredRecipients);
+  }
+  ```
+  
+  **Methods:**
+  - `getParticle()` - Returns the Particle object
+  - `getPosition()` - Returns the Vector3 position where particles spawn
+  - `getRecipients()` - Returns array of Players who will see particles
+  - `setRecipients(array $recipients)` - Sets who will see particles
+</Accordion>
+
+## Usage Examples
+
+### Keeping Spawn Chunks Loaded
+
+```php
+use pocketmine\event\Listener;
+use pocketmine\event\world\ChunkUnloadEvent;
+
+class SpawnProtector implements Listener {
+    
+    public function onChunkUnload(ChunkUnloadEvent $event) : void {
+        $world = $event->getWorld();
+        $chunkX = $event->getChunkX();
+        $chunkZ = $event->getChunkZ();
+        
+        // Calculate spawn chunk coordinates
+        $spawn = $world->getSpawnLocation();
+        $spawnChunkX = $spawn->x >> 4;
+        $spawnChunkZ = $spawn->z >> 4;
+        
+        // Prevent unloading chunks within 2 chunks of spawn
+        if (abs($chunkX - $spawnChunkX) <= 2 && abs($chunkZ - $spawnChunkZ) <= 2) {
+            $event->cancel();
+        }
+    }
+}
+```
+
+### Custom Chunk Population
+
+```php
+use pocketmine\event\world\ChunkPopulateEvent;
+use pocketmine\block\VanillaBlocks;
+
+public function onChunkPopulate(ChunkPopulateEvent $event) : void {
+    $world = $event->getWorld();
+    $chunkX = $event->getChunkX();
+    $chunkZ = $event->getChunkZ();
+    $chunk = $event->getChunk();
+    
+    // Add custom ore generation
+    $random = new Random($world->getSeed() + ($chunkX * 31) + $chunkZ);
+    
+    // Generate 5 diamond ore veins per chunk
+    for ($i = 0; $i < 5; $i++) {
+        $x = $random->nextBoundedInt(16);
+        $y = $random->nextBoundedInt(16) + 5; // Y 5-20
+        $z = $random->nextBoundedInt(16);
+        
+        $world->setBlockAt(
+            ($chunkX << 4) + $x,
+            $y,
+            ($chunkZ << 4) + $z,
+            VanillaBlocks::DIAMOND_ORE()
+        );
+    }
+}
+```
+
+### World Time Control
+
+```php
+use pocketmine\event\world\WorldLoadEvent;
+use pocketmine\world\World;
+
+public function onWorldLoad(WorldLoadEvent $event) : void {
+    $world = $event->getWorld();
+    
+    // Set specific world to always be daytime
+    if ($world->getFolderName() === "lobby") {
+        $world->setTime(World::TIME_DAY);
+        $world->stopTime();
+    }
+    
+    // Set PvP world to always be night
+    if ($world->getFolderName() === "pvp") {
+        $world->setTime(World::TIME_NIGHT);
+        $world->stopTime();
+    }
+}
+```
+
+### Sound Filtering
+
+```php
+use pocketmine\event\world\WorldSoundEvent;
+use pocketmine\world\sound\XpCollectSound;
+
+public function onWorldSound(WorldSoundEvent $event) : void {
+    $sound = $event->getSound();
+    $recipients = $event->getRecipients();
+    
+    // Only let nearby players hear XP sounds
+    if ($sound instanceof XpCollectSound) {
+        $position = $event->getPosition();
+        
+        $nearbyRecipients = array_filter($recipients, function($player) use ($position) {
+            return $player->getPosition()->distance($position) <= 10;
+        });
+        
+        $event->setRecipients($nearbyRecipients);
+    }
+}
+```
+
+## Complete World Event List
+
+All world-related events:
+
+- `ChunkEvent` - Base class for chunk events
+- `ChunkLoadEvent` - Chunk is loaded or generated
+- `ChunkPopulateEvent` - Chunk is populated with decorations
+- `ChunkUnloadEvent` - Chunk is being unloaded
+- `SpawnChangeEvent` - World spawn position changes
+- `WorldDifficultyChangeEvent` - World difficulty changes
+- `WorldDisplayNameChangeEvent` - World display name changes
+- `WorldEvent` - Base class for world events
+- `WorldInitEvent` - World is initialized
+- `WorldLoadEvent` - World is loaded
+- `WorldParticleEvent` - Particles are spawned
+- `WorldSaveEvent` - World is saved
+- `WorldSoundEvent` - Sound is played
+- `WorldUnloadEvent` - World is being unloaded

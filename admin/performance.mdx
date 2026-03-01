@@ -1,0 +1,476 @@
+---
+title: Performance Optimization
+description: Optimize your PocketMine-MP server for maximum performance and stability
+---
+
+PocketMine-MP is built for performance, but proper configuration is essential for running a smooth server, especially with many players or resource-intensive plugins.
+
+## Memory Management
+
+PocketMine-MP includes sophisticated memory management to prevent crashes and maintain performance.
+
+### Memory Limits
+
+Configure memory limits in `pocketmine.yml`:
+
+```yaml pocketmine.yml
+memory:
+  # Global memory limit (all threads) in MB
+  global-limit: 0  # 0 = disabled
+  
+  # Main thread soft limit in MB
+  main-limit: 0
+  
+  # Main thread hard limit in MB (stops server when exceeded)
+  main-hard-limit: 1024
+  
+  # Per-worker thread hard limit in MB
+  async-worker-hard-limit: 256
+  
+  # Memory check frequency in ticks (20 = 1 second)
+  check-rate: 20
+  
+  # Continue triggering cleanup during low memory
+  continuous-trigger: true
+  continuous-trigger-rate: 30
+```
+
+<Info>
+The memory manager checks usage every `check-rate` ticks and triggers garbage collection when soft limits are exceeded.
+</Info>
+
+### Understanding Memory Limits
+
+<AccordionGroup>
+
+<Accordion title="global-limit vs main-limit">
+- **global-limit**: Total memory used by all threads (main + workers)
+- **main-limit**: Memory used only by the main server thread
+- Set to `0` to disable soft limiting
+</Accordion>
+
+<Accordion title="Soft limit vs hard limit">
+- **Soft limits** (global-limit, main-limit): Trigger memory cleanup when exceeded
+- **Hard limits** (main-hard-limit): Stop the server/worker when exceeded
+- Hard limits prevent PHP fatal errors and crashes
+</Accordion>
+
+<Accordion title="Low memory behavior">
+When soft limits are exceeded, PocketMine-MP automatically:
+- Clears chunk caches
+- Runs garbage collection
+- Reduces view distance to `max-chunks.chunk-radius`
+- Fires `LowMemoryEvent` for plugins to free resources
+</Accordion>
+
+</AccordionGroup>
+
+### Memory Recommendations
+
+<CardGroup cols={2}>
+
+<Card title="Small Server" icon="users">
+**1-20 players**
+
+- main-hard-limit: `1024` MB
+- 2-4 GB total RAM
+- view-distance: `8`
+</Card>
+
+<Card title="Medium Server" icon="user-group">
+**20-50 players**
+
+- main-hard-limit: `2048` MB
+- 4-8 GB total RAM
+- view-distance: `8-10`
+</Card>
+
+<Card title="Large Server" icon="building">
+**50-100 players**
+
+- main-hard-limit: `4096` MB
+- 8-16 GB total RAM
+- view-distance: `10-12`
+</Card>
+
+<Card title="Mega Server" icon="city">
+**100+ players**
+
+- main-hard-limit: `8192+` MB
+- 16+ GB total RAM
+- view-distance: `12+`
+- Multiple worlds/instances
+</Card>
+
+</CardGroup>
+
+### Garbage Collection
+
+```yaml
+memory:
+  garbage-collection:
+    # Manual GC period in ticks (36000 = 30 minutes, 0 = disabled)
+    period: 36000
+```
+
+PocketMine-MP automatically triggers PHP garbage collection:
+- Periodically based on `period`
+- During low memory conditions
+- When memory dumps are created
+
+<Note>
+Decreasing the GC period increases CPU usage but may prevent memory buildup. Only change if experiencing memory issues.
+</Note>
+
+### Memory Dumps
+
+Create memory dumps for debugging memory leaks:
+
+```bash
+# In server console
+dump memory
+```
+
+Memory dump configuration:
+
+```yaml
+memory:
+  memory-dump:
+    # Include async workers in dumps
+    dump-async-worker: true
+  
+  max-chunks:
+    # Reduce view distance during low memory
+    chunk-radius: 4
+```
+
+<Warning>
+Memory dumps are resource-intensive and may cause the server to crash. Only use for debugging purposes.
+</Warning>
+
+## CPU Optimization
+
+### Async Workers
+
+Async workers handle background tasks without blocking the main thread:
+
+```yaml
+settings:
+  # Number of worker threads
+  # auto = CPU cores - 2 (minimum 2)
+  async-workers: auto
+```
+
+**Worker threads handle:**
+- World generation
+- Chunk compression
+- Plugin async tasks
+- Web requests
+
+<Tip>
+For dedicated servers: Set to number of CPU cores minus 2. For shared hosting: Use lower values (2-4) to avoid resource conflicts.
+</Tip>
+
+### Chunk Management
+
+#### Chunk Sending
+
+```yaml
+chunk-sending:
+  # Chunks sent to players per tick
+  per-tick: 4
+  
+  # Chunks loaded before spawning player
+  spawn-radius: 4
+```
+
+<Info>
+Increasing `per-tick` speeds up world loading but increases network and CPU usage. Decrease if experiencing lag during player joins.
+</Info>
+
+#### Chunk Ticking
+
+```yaml
+chunk-ticking:
+  # Radius of chunks that receive random ticks
+  tick-radius: 3
+  
+  # Random tick speed (affects crop growth, etc.)
+  blocks-per-subchunk-per-tick: 3
+  
+  # Disable expensive block ticking
+  disable-block-ticking:
+    # - fire
+    # - water
+    # - lava
+```
+
+**Performance impact:**
+- Lower `tick-radius`: Better performance, slower crop growth
+- Lower `blocks-per-subchunk-per-tick`: Better performance, slower events
+
+#### Chunk Generation
+
+```yaml
+chunk-generation:
+  # Maximum chunks in generation queue
+  population-queue-size: 32
+```
+
+Lower values reduce memory usage but slow world generation.
+
+### View Distance
+
+In `server.properties`:
+
+```properties
+# Maximum view distance in chunks
+view-distance=8
+```
+
+**Impact per chunk increase:**
+- ~60-100 KB RAM per chunk (loaded)
+- Increased CPU for chunk ticking
+- Higher network bandwidth
+
+<AccordionGroup>
+
+<Accordion title="View distance calculation">
+Total chunks loaded per player = `(view-distance * 2 + 1)²`
+
+- view-distance 4: 81 chunks
+- view-distance 8: 289 chunks
+- view-distance 12: 625 chunks
+</Accordion>
+
+<Accordion title="Recommended values">
+- **4-6**: Budget hosting, many plugins
+- **8-10**: Standard servers (recommended)
+- **12-16**: High-performance servers
+- **16+**: Dedicated hardware only
+</Accordion>
+
+</AccordionGroup>
+
+## Network Optimization
+
+### Compression
+
+```yaml
+network:
+  # Compress packets larger than this (bytes)
+  batch-threshold: 256
+  
+  # Compression level (0-9)
+  # Higher = better compression, more CPU usage
+  compression-level: 6
+  
+  # Use async tasks for compression
+  async-compression: false
+  
+  # Only compress async if packet exceeds this size
+  async-compression-threshold: 10000
+```
+
+<Tip>
+**Low bandwidth servers**: Increase compression-level to 7-8
+
+**High CPU usage**: Decrease compression-level to 4-5 or enable async-compression
+</Tip>
+
+### MTU Size
+
+```yaml
+network:
+  # Maximum transmission unit in bytes
+  max-mtu-size: 1492
+```
+
+Higher MTU reduces packet fragmentation but may cause issues on some networks. Only increase if you understand network configuration.
+
+### Query Configuration
+
+In `server.properties`:
+
+```properties
+# Enable server query protocol
+enable-query=true
+```
+
+Disable if not using server lists to save minimal CPU/bandwidth.
+
+## Storage Optimization
+
+### World Format
+
+```yaml
+level-settings:
+  # World storage format
+  default-format: leveldb
+```
+
+**leveldb** (recommended): Faster, more efficient, industry-standard
+
+### Auto-save Interval
+
+In `pocketmine.yml`:
+
+```yaml
+ticks-per:
+  # Auto-save interval in ticks (6000 = 5 minutes)
+  autosave: 6000
+```
+
+In `server.properties`:
+
+```properties
+# Enable auto-save
+auto-save=true
+```
+
+<Warning>
+Increasing auto-save interval reduces disk I/O but risks data loss during crashes. Balance based on your needs.
+</Warning>
+
+## Monitoring Performance
+
+### Timings
+
+Generate detailed performance reports:
+
+```bash
+# Start timings
+timings on
+
+# Run server normally for 5-10 minutes
+
+# Generate report
+timings paste
+```
+
+View reports at the configured timings host:
+
+```yaml
+timings:
+  host: timings.pmmp.io
+```
+
+### Status Command
+
+```bash
+status
+```
+
+Shows:
+- Current TPS (ticks per second)
+- Memory usage
+- Player count
+- Uptime
+
+<Note>
+Target TPS is 20. Values consistently below 19 indicate performance issues.
+</Note>
+
+### Garbage Collection Stats
+
+```bash
+gc
+```
+
+Manually triggers garbage collection and displays statistics.
+
+## Performance Checklist
+
+<Steps>
+
+<Step title="Set appropriate memory limits">
+Configure `main-hard-limit` based on available RAM (see recommendations above)
+</Step>
+
+<Step title="Optimize view distance">
+Start with `view-distance=8` and adjust based on performance
+</Step>
+
+<Step title="Configure async workers">
+Use `async-workers: auto` or set to CPU cores - 2
+</Step>
+
+<Step title="Tune chunk settings">
+Balance `tick-radius` and `per-tick` for your player count
+</Step>
+
+<Step title="Adjust network compression">
+Set `compression-level` based on bandwidth vs CPU availability
+</Step>
+
+<Step title="Monitor with timings">
+Regularly check timings reports to identify bottlenecks
+</Step>
+
+<Step title="Update regularly">
+Keep PocketMine-MP updated for performance improvements
+</Step>
+
+</Steps>
+
+## Troubleshooting Performance Issues
+
+<AccordionGroup>
+
+<Accordion title="Low TPS (< 19)">
+**Causes:**
+- Too many entities/mobs
+- Heavy plugins
+- Large redstone contraptions
+- Excessive chunk ticking
+
+**Solutions:**
+- Reduce `tick-radius`
+- Disable expensive block ticking
+- Remove or optimize heavy plugins
+- Use timings to identify specific lag sources
+</Accordion>
+
+<Accordion title="High memory usage">
+**Causes:**
+- Too many loaded chunks
+- Memory leaks in plugins
+- High player count
+- Large view distance
+
+**Solutions:**
+- Reduce `view-distance`
+- Enable soft memory limits
+- Unload unused worlds
+- Check plugins for memory leaks with memory dumps
+</Accordion>
+
+<Accordion title="High CPU usage">
+**Causes:**
+- High compression level
+- Too many async workers
+- Intensive world generation
+- Heavy entity processing
+
+**Solutions:**
+- Lower `compression-level`
+- Reduce `async-workers`
+- Pre-generate worlds
+- Limit entity spawning
+</Accordion>
+
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Configuration" icon="gear" href="/admin/configuration">
+Review all configuration options
+</Card>
+
+<Card title="Troubleshooting" icon="wrench" href="/admin/troubleshooting">
+Resolve common issues
+</Card>
+
+</CardGroup>

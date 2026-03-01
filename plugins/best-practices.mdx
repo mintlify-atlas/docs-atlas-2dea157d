@@ -1,0 +1,607 @@
+---
+title: Best Practices
+description: Performance tips, thread safety, and common pitfalls in PocketMine-MP plugin development
+---
+
+This guide covers best practices for writing efficient, safe, and maintainable PocketMine-MP plugins.
+
+## Performance Optimization
+
+### Cache Frequently Accessed Data
+
+Don't repeatedly access configs or perform expensive operations:
+
+```php
+// ❌ Bad - reads config every time
+public function canBreakBlock(Player $player) : bool {
+    return $player->hasPermission($this->getConfig()->get("break-permission"));
+}
+
+// ✅ Good - cache in onEnable()
+private string $breakPermission;
+
+protected function onEnable() : void {
+    $this->breakPermission = $this->getConfig()->get("break-permission", "plugin.break");
+}
+
+public function canBreakBlock(Player $player) : bool {
+    return $player->hasPermission($this->breakPermission);
+}
+```
+
+### Avoid Heavy Operations in Events
+
+Event handlers should be fast, especially for frequent events:
+
+```php
+// ❌ Bad - expensive operation in PlayerMoveEvent
+public function onMove(PlayerMoveEvent $event) : void {
+    // This fires 20+ times per second per player!
+    $this->checkAllRegions($event->getPlayer());
+    $this->updateDatabase($event->getPlayer());
+}
+
+// ✅ Good - use scheduled tasks for heavy work
+private array $playersToCheck = [];
+
+public function onMove(PlayerMoveEvent $event) : void {
+    // Queue player for checking
+    $this->playersToCheck[$event->getPlayer()->getName()] = true;
+}
+
+protected function onEnable() : void {
+    // Check players once per second instead
+    $this->getScheduler()->scheduleRepeatingTask(
+        new ClosureTask(function() : void {
+            foreach($this->playersToCheck as $name => $_) {
+                $player = $this->getServer()->getPlayerByPrefix($name);
+                if($player !== null) {
+                    $this->checkAllRegions($player);
+                }
+            }
+            $this->playersToCheck = [];
+        }),
+        20
+    );
+}
+```
+
+### Use Event Priority Wisely
+
+```php
+/**
+ * Use HIGH priority for expensive checks that might be unnecessary
+ * if another plugin cancels the event
+ * @priority HIGH
+ */
+public function onBlockBreak(BlockBreakEvent $event) : void {
+    // Runs after most other plugins
+    if($event->isCancelled()) {
+        return;  // Skip expensive check
+    }
+    
+    $this->doExpensiveCheck($event->getBlock());
+}
+```
+
+### Batch Database Operations
+
+```php
+// ❌ Bad - query for each player
+foreach($players as $player) {
+    $this->database->savePlayer($player);
+}
+
+// ✅ Good - batch save
+$this->database->beginTransaction();
+foreach($players as $player) {
+    $this->database->savePlayer($player);
+}
+$this->database->commit();
+```
+
+## Thread Safety
+
+### Never Access Server from Async Tasks
+
+```php
+// ❌ WRONG - Will crash!
+class BadAsyncTask extends AsyncTask {
+    public function onRun() : void {
+        // Server is NOT available in async tasks!
+        $this->plugin->getServer()->broadcastMessage("Hi");
+    }
+}
+
+// ✅ Correct - use onCompletion()
+class GoodAsyncTask extends AsyncTask {
+    
+    public function onRun() : void {
+        // Do work here (no Server access)
+        $result = $this->calculateSomething();
+        $this->setResult($result);
+    }
+    
+    public function onCompletion() : void {
+        // Server IS available here (runs on main thread)
+        $plugin = $this->fetchLocal("plugin");
+        $plugin->getServer()->broadcastMessage("Task done!");
+    }
+}
+```
+
+### Store Plugin Reference Properly in Async Tasks
+
+```php
+class MyAsyncTask extends AsyncTask {
+    
+    public function __construct(Main $plugin) {
+        // Use storeLocal for non-serializable objects
+        $this->storeLocal("plugin", $plugin);
+    }
+    
+    public function onCompletion() : void {
+        /** @var Main $plugin */
+        $plugin = $this->fetchLocal("plugin");
+        $plugin->handleResult($this->getResult());
+    }
+}
+```
+
+### Don't Share Data Between Threads
+
+```php
+// ❌ Bad - shared array (not thread-safe)
+private array $sharedData = [];
+
+public function onEnable() : void {
+    $this->getServer()->getAsyncPool()->submitTask(
+        new class($this->sharedData) extends AsyncTask {
+            // Dangerous! Array is shared between threads
+        }
+    );
+}
+
+// ✅ Good - pass serializable data
+public function startTask(array $data) : void {
+    $serialized = json_encode($data);
+    $this->getServer()->getAsyncPool()->submitTask(
+        new class($serialized) extends AsyncTask {
+            public function __construct(
+                private string $data
+            ){}
+            
+            public function onRun() : void {
+                $data = json_decode($this->data, true);
+                // Work with data
+            }
+        }
+    );
+}
+```
+
+## Common Pitfalls
+
+### Not Checking if Player is Online
+
+```php
+// ❌ Bad - player might have disconnected
+$this->getScheduler()->scheduleDelayedTask(
+    new ClosureTask(function() use ($player) : void {
+        $player->sendMessage("Hi!");  // Might crash!
+    }),
+    100
+);
+
+// ✅ Good - check if player is still online
+$this->getScheduler()->scheduleDelayedTask(
+    new ClosureTask(function() use ($player) : void {
+        if($player->isConnected()) {
+            $player->sendMessage("Hi!");
+        }
+    }),
+    100
+);
+
+// ✅ Better - use player name
+$playerName = $player->getName();
+$this->getScheduler()->scheduleDelayedTask(
+    new ClosureTask(function() use ($playerName) : void {
+        $player = $this->getServer()->getPlayerExact($playerName);
+        if($player !== null) {
+            $player->sendMessage("Hi!");
+        }
+    }),
+    100
+);
+```
+
+### Not Validating User Input
+
+```php
+// ❌ Bad - no validation
+public function onCommand(CommandSender $sender, Command $cmd, string $label, array $args) : bool {
+    $amount = (int) $args[0];
+    $this->giveMoney($sender, $amount);
+    return true;
+}
+
+// ✅ Good - validate input
+public function onCommand(CommandSender $sender, Command $cmd, string $label, array $args) : bool {
+    if(count($args) < 1) {
+        $sender->sendMessage("Usage: /command <amount>");
+        return false;
+    }
+    
+    if(!is_numeric($args[0])) {
+        $sender->sendMessage("§cAmount must be a number");
+        return true;
+    }
+    
+    $amount = (int) $args[0];
+    
+    if($amount <= 0 || $amount > 1000000) {
+        $sender->sendMessage("§cAmount must be between 1 and 1000000");
+        return true;
+    }
+    
+    $this->giveMoney($sender, $amount);
+    return true;
+}
+```
+
+### Memory Leaks from Event Handlers
+
+```php
+// ❌ Bad - stores references to all players
+private array $players = [];
+
+public function onJoin(PlayerJoinEvent $event) : void {
+    $this->players[] = $event->getPlayer();
+    // Player objects never removed - memory leak!
+}
+
+// ✅ Good - use player names or clean up on quit
+private array $playerData = [];
+
+public function onJoin(PlayerJoinEvent $event) : void {
+    $name = $event->getPlayer()->getName();
+    $this->playerData[$name] = ["joinTime" => time()];
+}
+
+public function onQuit(PlayerQuitEvent $event) : void {
+    unset($this->playerData[$event->getPlayer()->getName()]);
+}
+```
+
+### Forgetting to Save Data
+
+```php
+// ❌ Bad - data lost on crash
+public function setPlayerScore(Player $player, int $score) : void {
+    $this->scores[$player->getName()] = $score;
+    // Not saved!
+}
+
+// ✅ Good - save important data immediately
+public function setPlayerScore(Player $player, int $score) : void {
+    $this->scores[$player->getName()] = $score;
+    $this->saveScores();
+}
+
+// ✅ Or use auto-save task
+protected function onEnable() : void {
+    $this->getScheduler()->scheduleRepeatingTask(
+        new ClosureTask(function() : void {
+            $this->saveScores();
+        }),
+        1200  // Auto-save every minute
+    );
+}
+
+protected function onDisable() : void {
+    $this->saveScores();  // Always save on disable
+}
+```
+
+## Code Organization
+
+### Separate Concerns
+
+```php
+// ❌ Bad - everything in Main class
+class Main extends PluginBase implements Listener {
+    public function onJoin(PlayerJoinEvent $event) : void { }
+    public function onBlockBreak(BlockBreakEvent $event) : void { }
+    public function onCommand(...) : bool { }
+    public function saveData() : void { }
+    public function loadData() : void { }
+    // ... 500 more lines
+}
+
+// ✅ Good - organized into classes
+class Main extends PluginBase {
+    private EventListener $listener;
+    private DataManager $dataManager;
+    private CommandHandler $commandHandler;
+    
+    protected function onEnable() : void {
+        $this->dataManager = new DataManager($this);
+        $this->listener = new EventListener($this);
+        $this->commandHandler = new CommandHandler($this);
+        
+        $this->getServer()->getPluginManager()->registerEvents(
+            $this->listener, 
+            $this
+        );
+    }
+}
+
+class EventListener implements Listener {
+    public function onJoin(PlayerJoinEvent $event) : void { }
+    public function onBlockBreak(BlockBreakEvent $event) : void { }
+}
+
+class DataManager {
+    public function save() : void { }
+    public function load() : void { }
+}
+
+class CommandHandler {
+    public function handleCommand(...) : bool { }
+}
+```
+
+### Use Manager Classes
+
+```php
+class Main extends PluginBase {
+    private PlayerManager $playerManager;
+    private GameManager $gameManager;
+    private EconomyManager $economyManager;
+    
+    protected function onEnable() : void {
+        $this->playerManager = new PlayerManager($this);
+        $this->gameManager = new GameManager($this);
+        $this->economyManager = new EconomyManager($this);
+    }
+    
+    public function getPlayerManager() : PlayerManager {
+        return $this->playerManager;
+    }
+    
+    public function getGameManager() : GameManager {
+        return $this->gameManager;
+    }
+}
+```
+
+## Error Handling
+
+### Always Handle Exceptions
+
+```php
+// ❌ Bad - crashes plugin on error
+public function loadData() : void {
+    $data = json_decode(file_get_contents($this->getDataFolder() . "data.json"), true);
+}
+
+// ✅ Good - handle errors gracefully
+public function loadData() : void {
+    try {
+        $file = $this->getDataFolder() . "data.json";
+        
+        if(!file_exists($file)) {
+            $this->getLogger()->warning("Data file not found, using defaults");
+            return;
+        }
+        
+        $contents = file_get_contents($file);
+        if($contents === false) {
+            throw new \RuntimeException("Failed to read data file");
+        }
+        
+        $data = json_decode($contents, true);
+        if($data === null) {
+            throw new \RuntimeException("Invalid JSON in data file");
+        }
+        
+        $this->data = $data;
+        
+    } catch(\Exception $e) {
+        $this->getLogger()->error("Failed to load data: " . $e->getMessage());
+        $this->getLogger()->logException($e);
+    }
+}
+```
+
+### Log Errors Properly
+
+```php
+// Different log levels
+$this->getLogger()->debug("Debug information");
+$this->getLogger()->info("Normal information");
+$this->getLogger()->notice("Important information");
+$this->getLogger()->warning("Warning - something might be wrong");
+$this->getLogger()->error("Error - something went wrong");
+$this->getLogger()->critical("Critical - plugin cannot function");
+$this->getLogger()->emergency("Emergency - server-wide issue");
+
+// Log exceptions
+try {
+    // code
+} catch(\Exception $e) {
+    $this->getLogger()->logException($e);
+}
+```
+
+## Security
+
+### Validate Permissions
+
+```php
+// Always check permissions
+public function onCommand(CommandSender $sender, Command $cmd, string $label, array $args) : bool {
+    if(!$sender->hasPermission("myplugin.admin")) {
+        $sender->sendMessage("§cNo permission");
+        return true;
+    }
+    
+    // Command logic
+    return true;
+}
+```
+
+### Sanitize User Input
+
+```php
+// ❌ Bad - SQL injection possible
+$name = $args[0];
+$query = "SELECT * FROM players WHERE name='$name'";
+
+// ✅ Good - use prepared statements
+$name = $args[0];
+$stmt = $db->prepare("SELECT * FROM players WHERE name = ?");
+$stmt->execute([$name]);
+```
+
+### Don't Trust Client Data
+
+```php
+public function onBlockPlace(BlockPlaceEvent $event) : void {
+    $player = $event->getPlayer();
+    
+    // ❌ Bad - trust client position
+    $pos = $event->getBlock()->getPosition();
+    
+    // ✅ Good - validate position is near player
+    $pos = $event->getBlock()->getPosition();
+    if($pos->distance($player->getPosition()) > 10) {
+        $event->cancel();
+        $this->getLogger()->warning(
+            $player->getName() . " tried to place block too far away"
+        );
+    }
+}
+```
+
+## Testing and Debugging
+
+### Add Debug Mode
+
+```php
+class Main extends PluginBase {
+    private bool $debug;
+    
+    protected function onEnable() : void {
+        $this->saveDefaultConfig();
+        $this->debug = $this->getConfig()->get("debug", false);
+    }
+    
+    public function debug(string $message) : void {
+        if($this->debug) {
+            $this->getLogger()->debug($message);
+        }
+    }
+}
+
+// Usage:
+$this->debug("Player " . $player->getName() . " entered zone " . $zoneId);
+```
+
+### Use Type Declarations
+
+```php
+// ✅ Good - strict types and type hints
+declare(strict_types=1);
+
+class Main extends PluginBase {
+    
+    public function teleportPlayer(Player $player, Position $pos) : bool {
+        // Types are enforced
+        return $player->teleport($pos);
+    }
+    
+    private function calculateScore(int $kills, int $deaths) : float {
+        if($deaths === 0) return (float) $kills;
+        return $kills / $deaths;
+    }
+}
+```
+
+## Performance Monitoring
+
+```php
+class Main extends PluginBase {
+    
+    public function measurePerformance(callable $callback, string $label) : mixed {
+        $start = microtime(true);
+        $result = $callback();
+        $time = (microtime(true) - $start) * 1000;
+        
+        if($time > 50) {  // Log if > 50ms
+            $this->getLogger()->warning(
+                "$label took {$time}ms (slow!)"
+            );
+        }
+        
+        return $result;
+    }
+}
+
+// Usage:
+$this->measurePerformance(
+    fn() => $this->loadAllData(),
+    "Data loading"
+);
+```
+
+## Summary Checklist
+
+<Tip>
+
+**Performance:**
+- [ ] Cache frequently accessed data
+- [ ] Avoid heavy operations in event handlers
+- [ ] Use appropriate event priorities
+- [ ] Batch database operations
+
+**Thread Safety:**
+- [ ] Never access Server in AsyncTask::onRun()
+- [ ] Use storeLocal/fetchLocal for plugin references
+- [ ] Don't share mutable data between threads
+
+**Safety:**
+- [ ] Check if players are online in delayed tasks
+- [ ] Validate all user input
+- [ ] Clean up event listener references
+- [ ] Always save data in onDisable()
+
+**Code Quality:**
+- [ ] Separate code into logical classes
+- [ ] Handle exceptions gracefully
+- [ ] Use proper logging levels
+- [ ] Add type declarations
+- [ ] Validate permissions
+
+**Testing:**
+- [ ] Add debug mode
+- [ ] Monitor performance
+- [ ] Test with multiple players
+- [ ] Test plugin reload/disable
+
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Getting Started" icon="rocket" href="/plugins/getting-started">
+Create your first plugin
+</Card>
+
+<Card title="Event Handlers" icon="bolt" href="/plugins/event-handlers">
+Learn about events
+</Card>
+
+</CardGroup>

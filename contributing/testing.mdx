@@ -1,0 +1,143 @@
+---
+title: Testing and Quality Tools
+description: Tools and processes for maintaining code quality in PocketMine-MP
+---
+
+PocketMine-MP uses several tools to enforce code quality standards. You can use these tools to check your code locally before you commit, which helps catch mistakes more quickly, and saves both your energy and maintainers' for reviewing logic, instead of formatting, syntax and other boring stuff.
+
+<Warning>
+These tools are automatically run by GitHub Actions on every commit pushed to GitHub. However, you should not rely on this to find errors in your code, as it will slow you down, and also generate notification spam for everyone watching the repository.
+</Warning>
+
+## Quality Tools Overview
+
+| Tool | Purpose | Installing | Running |
+|:-----|:--------|:-----------|:--------|
+| [PHPStan](https://phpstan.org) | Finds mistakes in code, e.g. wrong types, undefined functions | `composer install` | `vendor/bin/phpstan` |
+| [PHPUnit](https://phpunit.de/index.html) | Runs tests on code to verify behaviour | `composer install` | `vendor/bin/phpunit tests/phpunit` |
+| [PHP-CS-Fixer](https://github.com/FriendsOfPHP/PHP-CS-Fixer) | Fixes (some) code style issues | [Download phar](https://github.com/PHP-CS-Fixer/PHP-CS-Fixer/releases) | `php php-cs-fixer.phar fix` |
+
+## PHPStan - Static Analysis
+
+PHPStan is a static analysis tool that finds mistakes in your code without running it. It can detect:
+
+- Type errors (e.g. passing a string where an int is expected)
+- Calls to undefined functions or methods
+- Access to undefined properties
+- Dead code that will never execute
+- And much more
+
+### Installing PHPStan
+
+PHPStan is installed automatically when you run:
+
+```bash
+composer install
+```
+
+### Running PHPStan
+
+To analyze your code with PHPStan:
+
+```bash
+vendor/bin/phpstan
+```
+
+PHPStan will analyze the entire codebase and report any issues it finds.
+
+<Tip>
+We strongly recommend PhpStorm with the PHPStan plugin. This will give you feedback from PHPStan inline as you code, which can save even more time.
+
+However, do note that the PhpStorm PHPStan plugin has some issues and may also generate false-positive errors, so don't rely exclusively on the IDE.
+</Tip>
+
+## PHPUnit - Unit Testing
+
+PHPUnit is a testing framework that runs automated tests to verify that your code behaves correctly. Tests help ensure that:
+
+- New features work as expected
+- Bug fixes actually fix the problem
+- Changes don't break existing functionality
+
+### Installing PHPUnit
+
+PHPUnit is installed automatically when you run:
+
+```bash
+composer install
+```
+
+### Running PHPUnit
+
+To run the test suite:
+
+```bash
+vendor/bin/phpunit tests/phpunit
+```
+
+### Writing Tests
+
+When submitting a pull request, ideally include PHPUnit tests for your changes. If that's not possible (e.g. for in-game functionality), provide details about playtesting such as screenshots and videos.
+
+## PHP-CS-Fixer - Code Style
+
+PHP-CS-Fixer automatically fixes code style issues to ensure your code follows PocketMine-MP's coding standards.
+
+### Installing PHP-CS-Fixer
+
+Download the latest phar file from the [PHP-CS-Fixer releases page](https://github.com/PHP-CS-Fixer/PHP-CS-Fixer/releases).
+
+### Running PHP-CS-Fixer
+
+To fix code style issues in your code:
+
+```bash
+php php-cs-fixer.phar fix
+```
+
+This will automatically format your code according to PocketMine-MP's style guidelines.
+
+### PhpStorm Code Style
+
+If you use PhpStorm, a `Project` code style is provided in the repository, which you can use to automatically format new code.
+
+## Running Quality Checks Before Committing
+
+Before committing your changes, run all quality tools:
+
+<Steps>
+  <Step title="Run PHPStan">
+    Check for type errors and other static analysis issues:
+    ```bash
+    vendor/bin/phpstan
+    ```
+  </Step>
+
+  <Step title="Run PHPUnit">
+    Ensure all tests pass:
+    ```bash
+    vendor/bin/phpunit tests/phpunit
+    ```
+  </Step>
+
+  <Step title="Fix code style">
+    Automatically fix any code style issues:
+    ```bash
+    php php-cs-fixer.phar fix
+    ```
+  </Step>
+</Steps>
+
+## GitHub Actions
+
+When you push commits to GitHub, these tools run automatically via GitHub Actions:
+
+- PHPStan analyzes your code for errors
+- PHPUnit runs the test suite
+- Code style checks verify formatting
+
+If any checks fail, you'll see a red X next to your commit. Click on it to see what failed and fix the issues.
+
+<Tip>
+Run these tools locally before pushing to avoid notification spam and catch errors faster. It's much quicker to fix issues on your local machine than to push, wait for CI, see it fail, fix, and push again.
+</Tip>

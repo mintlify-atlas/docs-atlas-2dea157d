@@ -1,0 +1,399 @@
+---
+title: Permission API
+description: Permission management system for controlling access to commands and features
+---
+
+The permission API allows you to create, register, and manage permissions for players and entities in PocketMine-MP.
+
+## Permission
+
+Represents a single permission node that can be granted or denied.
+
+### Constructor
+
+```php
+new Permission(
+    string $name,
+    Translatable|string|null $description = null,
+    array $children = []
+)
+```
+
+<ParamField path="$name" type="string" required>
+  The permission node name (e.g., "myplugin.command.teleport")
+</ParamField>
+
+<ParamField path="$description" type="Translatable|string" default="null">
+  Human-readable description of what the permission allows
+</ParamField>
+
+<ParamField path="$children" type="array<string, bool>" default="[]">
+  Child permissions (true = granted when parent is granted, false = denied)
+</ParamField>
+
+### Methods
+
+```php
+// Get permission name
+public function getName() : string
+
+// Get/set description
+public function getDescription() : Translatable|string
+public function setDescription(Translatable|string $value) : void
+
+// Get child permissions
+public function getChildren() : array
+
+// Add child permission
+public function addChild(string $name, bool $value) : void
+
+// Remove child permission
+public function removeChild(string $name) : void
+
+// Get all players/entities with this permission
+public function getPermissibles() : array
+
+// Recalculate all permissibles (call after modifying permission)
+public function recalculatePermissibles() : void
+```
+
+### Example: Creating Permissions
+
+```php
+use pocketmine\permission\Permission;
+use pocketmine\permission\PermissionManager;
+
+// Create a parent permission with children
+$parent = new Permission(
+    "myplugin.admin",
+    "Allows access to all admin features",
+    [
+        "myplugin.command.ban" => true,
+        "myplugin.command.kick" => true,
+        "myplugin.command.mute" => true
+    ]
+);
+
+// Register the permission
+PermissionManager::getInstance()->addPermission($parent);
+
+// Create child permissions
+$ban = new Permission(
+    "myplugin.command.ban",
+    "Allows banning players"
+);
+PermissionManager::getInstance()->addPermission($ban);
+```
+
+## PermissionManager
+
+Central registry for managing all permissions on the server.
+
+### Getting the Instance
+
+```php
+use pocketmine\permission\PermissionManager;
+
+$manager = PermissionManager::getInstance();
+```
+
+### Methods
+
+```php
+// Get a registered permission by name
+public function getPermission(string $name) : ?Permission
+
+// Register a new permission
+public function addPermission(Permission $permission) : bool
+
+// Unregister a permission
+public function removePermission(Permission|string $permission) : void
+
+// Get all registered permissions
+public function getPermissions() : array
+
+// Clear all permissions
+public function clearPermissions() : void
+```
+
+### Example: Managing Permissions
+
+```php
+use pocketmine\permission\Permission;
+use pocketmine\permission\PermissionManager;
+
+class MyPlugin extends PluginBase {
+    
+    public function onEnable() : void {
+        $manager = PermissionManager::getInstance();
+        
+        // Create and register permissions
+        $perms = [
+            new Permission("myplugin.vip", "VIP rank"),
+            new Permission("myplugin.moderator", "Moderator rank"),
+            new Permission("myplugin.admin", "Admin rank")
+        ];
+        
+        foreach ($perms as $perm) {
+            $manager->addPermission($perm);
+        }
+        
+        // Check if permission exists
+        if ($manager->getPermission("myplugin.vip") !== null) {
+            $this->getLogger()->info("VIP permission registered");
+        }
+    }
+    
+    public function onDisable() : void {
+        $manager = PermissionManager::getInstance();
+        
+        // Remove plugin permissions on disable
+        $manager->removePermission("myplugin.vip");
+        $manager->removePermission("myplugin.moderator");
+        $manager->removePermission("myplugin.admin");
+    }
+}
+```
+
+## PermissionAttachment
+
+Dynamically attach permissions to a player or entity at runtime.
+
+### Constructor
+
+```php
+new PermissionAttachment(Plugin $plugin)
+```
+
+<ParamField path="$plugin" type="Plugin" required>
+  The plugin creating this attachment (must be enabled)
+</ParamField>
+
+### Methods
+
+```php
+// Get the plugin that owns this attachment
+public function getPlugin() : Plugin
+
+// Set a single permission
+public function setPermission(Permission|string $name, bool $value) : void
+
+// Unset a single permission
+public function unsetPermission(Permission|string $name) : void
+
+// Set multiple permissions at once
+public function setPermissions(array $permissions) : void
+
+// Unset multiple permissions
+public function unsetPermissions(array $permissions) : void
+
+// Get all permissions in this attachment
+public function getPermissions() : array
+
+// Clear all permissions from this attachment
+public function clearPermissions() : void
+```
+
+### Example: Dynamic Permissions
+
+```php
+use pocketmine\permission\PermissionAttachment;
+use pocketmine\player\Player;
+use pocketmine\event\Listener;
+use pocketmine\event\player\PlayerJoinEvent;
+
+class RankSystem implements Listener {
+    private array $attachments = [];
+    
+    public function __construct(
+        private Plugin $plugin
+    ){}
+    
+    public function onJoin(PlayerJoinEvent $event) : void {
+        $player = $event->getPlayer();
+        $rank = $this->getRank($player);
+        
+        // Create permission attachment
+        $attachment = $player->addAttachment($this->plugin);
+        $this->attachments[$player->getName()] = $attachment;
+        
+        // Set permissions based on rank
+        match ($rank) {
+            "VIP" => $this->setVIPPermissions($attachment),
+            "Moderator" => $this->setModeratorPermissions($attachment),
+            "Admin" => $this->setAdminPermissions($attachment),
+            default => null
+        };
+    }
+    
+    private function setVIPPermissions(PermissionAttachment $attachment) : void {
+        $attachment->setPermissions([
+            "myplugin.fly" => true,
+            "myplugin.nick" => true,
+            "myplugin.chat.color" => true
+        ]);
+    }
+    
+    private function setModeratorPermissions(PermissionAttachment $attachment) : void {
+        // Moderators get VIP perms plus more
+        $this->setVIPPermissions($attachment);
+        $attachment->setPermissions([
+            "myplugin.kick" => true,
+            "myplugin.mute" => true,
+            "myplugin.warn" => true
+        ]);
+    }
+    
+    private function setAdminPermissions(PermissionAttachment $attachment) : void {
+        // Admins get everything
+        $attachment->setPermission("myplugin.*", true);
+    }
+    
+    public function removePlayerPermissions(Player $player) : void {
+        $name = $player->getName();
+        if (isset($this->attachments[$name])) {
+            $player->removeAttachment($this->attachments[$name]);
+            unset($this->attachments[$name]);
+        }
+    }
+}
+```
+
+## Checking Permissions
+
+Players and entities implement the `Permissible` interface, allowing you to check permissions.
+
+### Player Permission Methods
+
+```php
+// Check if player has a permission
+if ($player->hasPermission("myplugin.admin")) {
+    // Player has permission
+}
+
+// Check permission with default value
+if ($player->hasPermission("myplugin.vip")) {
+    $player->sendMessage("You are VIP!");
+}
+
+// Add permission attachment
+$attachment = $player->addAttachment($plugin);
+$attachment->setPermission("custom.permission", true);
+
+// Remove permission attachment
+$player->removeAttachment($attachment);
+
+// Check if player is op
+if ($player->isOp()) {
+    // Player is operator (has all permissions)
+}
+```
+
+### Example: Command with Permission Check
+
+```php
+use pocketmine\command\Command;
+use pocketmine\command\CommandSender;
+use pocketmine\player\Player;
+use pocketmine\utils\TextFormat as TF;
+
+class TeleportCommand extends Command {
+    
+    public function __construct() {
+        parent::__construct(
+            "tp",
+            "Teleport to a player",
+            "/tp <player>"
+        );
+        $this->setPermission("myplugin.command.teleport");
+    }
+    
+    public function execute(CommandSender $sender, string $label, array $args) : bool {
+        // Permission is automatically checked by the command system
+        // But you can also manually check
+        if (!$sender->hasPermission("myplugin.command.teleport")) {
+            $sender->sendMessage(TF::RED . "You don't have permission to use this command");
+            return false;
+        }
+        
+        if (!$sender instanceof Player) {
+            $sender->sendMessage("This command must be used in-game");
+            return false;
+        }
+        
+        if (count($args) < 1) {
+            return false;
+        }
+        
+        $target = $sender->getServer()->getPlayerByPrefix($args[0]);
+        if ($target === null) {
+            $sender->sendMessage(TF::RED . "Player not found");
+            return false;
+        }
+        
+        $sender->teleport($target->getLocation());
+        $sender->sendMessage(TF::GREEN . "Teleported to " . $target->getName());
+        return true;
+    }
+}
+```
+
+## Plugin.yml Permission Declaration
+
+Declare permissions in your `plugin.yml` for automatic registration:
+
+```yaml
+name: MyPlugin
+main: MyPlugin\Main
+version: 1.0.0
+api: 5.0.0
+
+permissions:
+  myplugin.admin:
+    description: "Allows access to all admin features"
+    default: op
+    children:
+      myplugin.command.ban:
+        description: "Allows banning players"
+        default: op
+      myplugin.command.kick:
+        description: "Allows kicking players"
+        default: op
+      myplugin.vip:
+        description: "VIP features"
+        default: false
+```
+
+### Permission Defaults
+
+<ResponseField name="op" type="boolean">
+  Only operators have this permission by default
+</ResponseField>
+
+<ResponseField name="notop" type="boolean">
+  All non-operators have this permission by default
+</ResponseField>
+
+<ResponseField name="true" type="boolean">
+  Everyone has this permission by default
+</ResponseField>
+
+<ResponseField name="false" type="boolean">
+  No one has this permission by default (must be explicitly granted)
+</ResponseField>
+
+## Best Practices
+
+1. **Use Namespaced Permissions**: Always prefix your permissions with your plugin name (e.g., `myplugin.feature`)
+
+2. **Hierarchical Structure**: Use dot notation to create logical hierarchies (e.g., `myplugin.command.teleport`)
+
+3. **Parent Permissions**: Create parent permissions with children for easy permission management
+
+4. **Declare in plugin.yml**: Always declare permissions in `plugin.yml` for documentation and automatic registration
+
+5. **Clean Up Attachments**: Remove permission attachments when no longer needed to prevent memory leaks
+
+6. **Check Before Use**: Always check permissions before executing privileged operations
+
+7. **Provide Feedback**: Send clear messages when permission checks fail so users understand why

@@ -1,0 +1,197 @@
+---
+title: Event System Overview
+description: Learn about PocketMine-MP's event system, base classes, and how to listen to and handle events
+---
+
+The event system in PocketMine-MP allows plugins to react to actions that occur in the server. Events are called when something happens (like a player joining, a block breaking, etc.), and plugins can register listeners to handle these events.
+
+## Core Event Classes
+
+### Event
+
+The base class for all events in PocketMine-MP.
+
+<ParamField path="getEventName()" type="string">
+  Returns the name of the event class
+</ParamField>
+
+<ParamField path="call()" type="void">
+  Calls all registered event handlers for this event
+</ParamField>
+
+<ParamField path="hasHandlers()" type="bool" static>
+  Returns whether any handlers are registered for this event class. Useful for optimizing hot code paths to avoid unnecessary event object creation.
+</ParamField>
+
+### Cancellable
+
+Interface implemented by events that can be cancelled. Cancelling an event prevents its action from occurring.
+
+<ParamField path="isCancelled()" type="bool">
+  Returns whether the event is currently cancelled
+</ParamField>
+
+<ParamField path="cancel()" type="void">
+  Cancels the event (provided by CancellableTrait)
+</ParamField>
+
+<ParamField path="uncancel()" type="void">
+  Uncancels the event (provided by CancellableTrait)
+</ParamField>
+
+## Event Priorities
+
+Event handlers are called in priority order:
+
+1. **LOWEST** (5) - Called first, allows other plugins to customize the outcome
+2. **LOW** (4) - Low importance
+3. **NORMAL** (3) - Default priority
+4. **HIGH** (2) - High importance
+5. **HIGHEST** (1) - Critical, has final say
+6. **MONITOR** (0) - Called last, for monitoring only (should not modify the event)
+
+## Creating Event Listeners
+
+To listen to events, create a class that implements the `Listener` interface:
+
+```php
+use pocketmine\event\Listener;
+use pocketmine\event\player\PlayerJoinEvent;
+use pocketmine\plugin\PluginBase;
+
+class MyPlugin extends PluginBase implements Listener {
+    
+    public function onEnable() : void {
+        $this->getServer()->getPluginManager()->registerEvents($this, $this);
+    }
+    
+    public function onPlayerJoin(PlayerJoinEvent $event) : void {
+        $player = $event->getPlayer();
+        $player->sendMessage("Welcome to the server!");
+    }
+}
+```
+
+### Event Handler Requirements
+
+For a method to be recognized as an event handler, it must:
+
+- Be **public**
+- **Not** be static
+- Accept **exactly one parameter** of an Event type (or its subclass)
+- The event parameter must not be abstract (unless annotated with `@allowHandle`)
+
+### Handler Annotations
+
+You can use PHPDoc annotations to control handler behavior:
+
+```php
+/**
+ * @priority HIGHEST
+ * @handleCancelled
+ */
+public function onPlayerChat(PlayerChatEvent $event) : void {
+    // This handler runs at HIGHEST priority
+    // and will be called even if the event is cancelled
+}
+
+/**
+ * @notHandler
+ */
+public function onPlayerMove(PlayerMoveEvent $event) : void {
+    // This method will NOT be registered as an event handler
+    // even though it meets the criteria
+}
+```
+
+**Available annotations:**
+
+- `@priority <PRIORITY>` - Sets the priority (LOWEST, LOW, NORMAL, HIGH, HIGHEST, MONITOR)
+- `@handleCancelled` - Handler will be called even if the event is cancelled
+- `@notHandler` - Prevents a method from being registered as a handler
+
+## Registering Events
+
+There are two ways to register event listeners:
+
+### Method 1: Class implements Listener
+
+```php
+class MyListener implements Listener {
+    public function onBlockBreak(BlockBreakEvent $event) : void {
+        // Handle event
+    }
+}
+
+// Register in your plugin's onEnable()
+$this->getServer()->getPluginManager()->registerEvents(new MyListener(), $this);
+```
+
+### Method 2: Manual registration
+
+```php
+use pocketmine\event\EventPriority;
+
+$this->getServer()->getPluginManager()->registerEvent(
+    PlayerJoinEvent::class,
+    function(PlayerJoinEvent $event) : void {
+        $event->getPlayer()->sendMessage("Welcome!");
+    },
+    EventPriority::NORMAL,
+    $this
+);
+```
+
+## Event Inheritance
+
+Event handlers receive the specified event and all its subclasses. For example:
+
+```php
+public function onEntityDamage(EntityDamageEvent $event) : void {
+    // This will be called for:
+    // - EntityDamageEvent
+    // - EntityDamageByEntityEvent (extends EntityDamageEvent)
+    // - EntityDamageByBlockEvent (extends EntityDamageEvent)
+    // - And all other EntityDamageEvent subclasses
+    
+    if ($event instanceof EntityDamageByEntityEvent) {
+        $damager = $event->getDamager();
+        // Handle entity-on-entity damage specifically
+    }
+}
+```
+
+## Performance Optimization
+
+Use `Event::hasHandlers()` to avoid creating event objects unnecessarily:
+
+```php
+if (PlayerMoveEvent::hasHandlers()) {
+    $event = new PlayerMoveEvent($player, $from, $to);
+    $event->call();
+    
+    if ($event->isCancelled()) {
+        // Handle cancellation
+    }
+}
+```
+
+## Base Event Categories
+
+<CardGroup cols={2}>
+  <Card title="Player Events" icon="user" href="./player-events">
+    Events related to player actions and state changes
+  </Card>
+  <Card title="Block Events" icon="cube" href="./block-events">
+    Events related to block placement, breaking, and changes
+  </Card>
+  <Card title="Entity Events" icon="ghost" href="./entity-events">
+    Events related to entity spawning, damage, and behavior
+  </Card>
+  <Card title="World Events" icon="globe" href="./world-events">
+    Events related to world loading, chunks, and changes
+  </Card>
+  <Card title="Server Events" icon="server" href="./server-events">
+    Events related to server operations and networking
+  </Card>
+</CardGroup>

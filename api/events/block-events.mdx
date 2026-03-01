@@ -1,0 +1,468 @@
+---
+title: Block Events
+description: Events related to block placement, breaking, updates, and changes
+---
+
+Block events are fired when blocks change state in the world. All block events extend the `BlockEvent` base class.
+
+## BlockEvent Base Class
+
+All block events inherit from this class:
+
+<ParamField path="getBlock()" type="Block">
+  Returns the block involved in the event
+</ParamField>
+
+## Player Block Interaction
+
+<Accordion title="BlockBreakEvent">
+  **Cancellable:** Yes
+  
+  Called when a player breaks a block.
+  
+  ```php
+  public function onBlockBreak(BlockBreakEvent $event) : void {
+      $player = $event->getPlayer();
+      $block = $event->getBlock();
+      $item = $event->getItem();
+      
+      // Prevent breaking of certain blocks
+      if ($block instanceof Bedrock) {
+          $event->cancel();
+          $player->sendMessage("You can't break bedrock!");
+          return;
+      }
+      
+      // Modify drops
+      $drops = $event->getDrops();
+      $drops[] = VanillaItems::DIAMOND()->setCount(1);
+      $event->setDrops($drops);
+      
+      // Modify XP
+      $event->setXpDropAmount(100);
+  }
+  ```
+  
+  **Methods:**
+  - `getPlayer()` - Returns the player breaking the block
+  - `getItem()` - Returns the item used to break the block
+  - `getInstaBreak()` - Returns whether block breaks instantly (e.g., creative mode)
+  - `setInstaBreak(bool $instaBreak)` - Sets instant break
+  - `getDrops()` - Returns array of items that will drop
+  - `setDrops(array $drops)` - Sets the items that will drop
+  - `getXpDropAmount()` - Returns XP that will drop
+  - `setXpDropAmount(int $amount)` - Sets XP that will drop
+</Accordion>
+
+<Accordion title="BlockPlaceEvent">
+  **Cancellable:** Yes
+  
+  Called when a player places one or more blocks.
+  
+  ```php
+  public function onBlockPlace(BlockPlaceEvent $event) : void {
+      $player = $event->getPlayer();
+      $transaction = $event->getTransaction();
+      
+      // Check all blocks being placed
+      foreach ($transaction->getBlocks() as [$x, $y, $z, $block]) {
+          if ($this->isProtectedArea($x, $y, $z)) {
+              $event->cancel();
+              $player->sendMessage("You can't build here!");
+              return;
+          }
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getPlayer()` - Returns the player placing the block
+  - `getItem()` - Returns the item in hand
+  - `getTransaction()` - Returns BlockTransaction with all blocks being placed
+  - `getBlockAgainst()` - Returns the block that was clicked to place
+</Accordion>
+
+## Natural Block Changes
+
+<Accordion title="BlockGrowEvent">
+  **Cancellable:** Yes
+  
+  Called when a block grows naturally (crops, saplings, etc.).
+  
+  ```php
+  public function onBlockGrow(BlockGrowEvent $event) : void {
+      $oldBlock = $event->getBlock();
+      $newBlock = $event->getNewState();
+      
+      // Prevent wheat from growing
+      if ($oldBlock instanceof Wheat) {
+          $event->cancel();
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getNewState()` - Returns the block state after growth
+</Accordion>
+
+<Accordion title="BlockSpreadEvent">
+  **Cancellable:** Yes
+  
+  Called when a block spreads (fire, vines, etc.).
+  
+  ```php
+  public function onBlockSpread(BlockSpreadEvent $event) : void {
+      $block = $event->getBlock();
+      $source = $event->getSource();
+      $newState = $event->getNewState();
+      
+      // Prevent fire spread
+      if ($newState instanceof Fire) {
+          $event->cancel();
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getSource()` - Returns the source block causing the spread
+  - `getNewState()` - Returns the new block state
+</Accordion>
+
+<Accordion title="BlockFormEvent">
+  **Cancellable:** Yes
+  
+  Called when a block forms (ice, snow, concrete, etc.).
+  
+  ```php
+  public function onBlockForm(BlockFormEvent $event) : void {
+      $block = $event->getBlock();
+      $newState = $event->getNewState();
+      
+      if ($newState instanceof Ice) {
+          // Water is freezing to ice
+          $event->cancel();
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getNewState()` - Returns the new block state
+</Accordion>
+
+<Accordion title="BlockMeltEvent">
+  **Cancellable:** Yes
+  
+  Called when a block melts (ice to water, snow melting).
+  
+  ```php
+  public function onBlockMelt(BlockMeltEvent $event) : void {
+      $block = $event->getBlock();
+      $newState = $event->getNewState();
+      
+      if ($block instanceof Ice) {
+          // Prevent ice from melting
+          $event->cancel();
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getNewState()` - Returns the new block state after melting
+</Accordion>
+
+<Accordion title="BlockBurnEvent">
+  **Cancellable:** Yes
+  
+  Called when a block is burned away by fire.
+  
+  ```php
+  public function onBlockBurn(BlockBurnEvent $event) : void {
+      $block = $event->getBlock();
+      $causingBlock = $event->getCausingBlock();
+      
+      // Protect wooden blocks from burning
+      if ($block->getTypeId() === BlockTypeIds::OAK_PLANKS) {
+          $event->cancel();
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getCausingBlock()` - Returns the block (usually Fire) causing the burn
+</Accordion>
+
+<Accordion title="LeavesDecayEvent">
+  **Cancellable:** Yes
+  
+  Called when leaves decay naturally.
+  
+  ```php
+  public function onLeavesDecay(LeavesDecayEvent $event) : void {
+      $leaves = $event->getBlock();
+      
+      // Prevent leaves from decaying
+      $event->cancel();
+  }
+  ```
+</Accordion>
+
+## Block State Changes
+
+<Accordion title="BlockUpdateEvent">
+  **Cancellable:** Yes
+  
+  Called when a block receives a block update (neighbor change).
+  
+  ```php
+  public function onBlockUpdate(BlockUpdateEvent $event) : void {
+      $block = $event->getBlock();
+      
+      // Prevent block updates for specific blocks
+      if ($block instanceof Torch) {
+          $event->cancel();
+      }
+  }
+  ```
+</Accordion>
+
+<Accordion title="SignChangeEvent">
+  **Cancellable:** Yes
+  
+  Called when a player changes text on a sign.
+  
+  ```php
+  public function onSignChange(SignChangeEvent $event) : void {
+      $player = $event->getPlayer();
+      $newText = $event->getNewText();
+      
+      // Filter sign text
+      $filteredLines = [];
+      foreach ($newText->getLines() as $line) {
+          $filteredLines[] = $this->filterBadWords($line);
+      }
+      
+      $event->setNewText(new SignText($filteredLines));
+  }
+  ```
+  
+  **Methods:**
+  - `getPlayer()` - Returns the player editing the sign
+  - `getOldText()` - Returns the old SignText
+  - `getNewText()` - Returns the new SignText
+  - `setNewText(SignText $text)` - Sets the new sign text
+</Accordion>
+
+<Accordion title="FarmlandHydrationChangeEvent">
+  **Cancellable:** Yes
+  
+  Called when farmland hydration level changes.
+  
+  **Methods:**
+  - `getOldHydration()` - Returns old hydration level
+  - `getNewHydration()` - Returns new hydration level
+  - `setNewHydration(int $hydration)` - Sets new hydration level
+</Accordion>
+
+<Accordion title="PressurePlateUpdateEvent">
+  **Cancellable:** Yes
+  
+  Called when a pressure plate activates or deactivates.
+  
+  **Methods:**
+  - `getActivatedEntities()` - Returns entities on the plate
+  - `hasActivatedEntities()` - Returns whether plate is activated
+</Accordion>
+
+## Explosions
+
+<Accordion title="BlockExplodeEvent">
+  **Cancellable:** Yes
+  
+  Called when a block explodes (TNT, etc.).
+  
+  ```php
+  public function onBlockExplode(BlockExplodeEvent $event) : void {
+      $block = $event->getBlock();
+      $blockList = $event->getBlockList();
+      
+      // Reduce explosion radius
+      $event->setYieldDrops(false); // Don't drop items
+      
+      // Modify affected blocks
+      $filtered = array_filter($blockList, function($pos) {
+          // Only destroy dirt blocks
+          $block = $pos->getWorld()->getBlock($pos);
+          return $block instanceof Dirt;
+      });
+      
+      $event->setBlockList($filtered);
+  }
+  ```
+  
+  **Methods:**
+  - `getBlockList()` - Returns array of Position objects that will be destroyed
+  - `setBlockList(array $blocks)` - Sets the blocks to destroy
+  - `getYieldDrops()` - Returns whether blocks drop items
+  - `setYieldDrops(bool $yield)` - Sets whether blocks drop items
+</Accordion>
+
+<Accordion title="BlockPreExplodeEvent">
+  **Cancellable:** Yes
+  
+  Called before an explosion affects blocks, allows modification of which blocks will be destroyed.
+  
+  **Methods:**
+  - `getAffectedBlocks()` - Returns blocks that will be affected
+  - `setAffectedBlocks(array $blocks)` - Sets blocks to be affected
+</Accordion>
+
+## Structure Events
+
+<Accordion title="StructureGrowEvent">
+  **Cancellable:** Yes
+  
+  Called when a structure grows (tree, huge mushroom).
+  
+  ```php
+  public function onStructureGrow(StructureGrowEvent $event) : void {
+      $player = $event->getPlayer(); // May be null for natural growth
+      $transaction = $event->getTransaction();
+      
+      // Count how many blocks will be placed
+      $blockCount = count($transaction->getBlocks());
+      
+      if ($blockCount > 100) {
+          // Prevent huge trees
+          $event->cancel();
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getPlayer()` - Returns player who caused growth (or null)
+  - `getTransaction()` - Returns BlockTransaction with all blocks
+</Accordion>
+
+<Accordion title="ChestPairEvent">
+  **Cancellable:** Yes
+  
+  Called when two chests pair to form a double chest.
+  
+  **Methods:**
+  - `getOtherChest()` - Returns the other chest block
+</Accordion>
+
+## Tile Entity Events
+
+<Accordion title="BrewItemEvent">
+  **Cancellable:** Yes
+  
+  Called when brewing completes in a brewing stand.
+  
+  ```php
+  public function onBrewItem(BrewItemEvent $event) : void {
+      $brewingStand = $event->getBlock();
+      $ingredient = $event->getIngredient();
+      $results = $event->getResults();
+      
+      // Modify brewing results
+      $event->setResults([
+          VanillaItems::POTION()->setCount(1),
+          VanillaItems::POTION()->setCount(1),
+          VanillaItems::POTION()->setCount(1)
+      ]);
+  }
+  ```
+  
+  **Methods:**
+  - `getIngredient()` - Returns the ingredient used
+  - `getResults()` - Returns array of resulting items
+  - `setResults(array $results)` - Sets the brewing results
+</Accordion>
+
+<Accordion title="BrewingFuelUseEvent">
+  **Cancellable:** Yes
+  
+  Called when brewing stand consumes fuel.
+  
+  **Methods:**
+  - `getFuel()` - Returns the fuel item
+  - `getFuelTime()` - Returns fuel duration in ticks
+  - `setFuelTime(int $time)` - Sets fuel duration
+</Accordion>
+
+<Accordion title="CampfireCookEvent">
+  **Cancellable:** Yes
+  
+  Called when food finishes cooking on a campfire.
+  
+  **Methods:**
+  - `getRawItem()` - Returns the raw food item
+  - `getResult()` - Returns the cooked result
+  - `setResult(Item $item)` - Sets the cooked result
+</Accordion>
+
+## Special Block Events
+
+<Accordion title="BlockTeleportEvent">
+  **Cancellable:** Yes
+  
+  Called when a block teleports (dragon egg, shulker box).
+  
+  **Methods:**
+  - `getFrom()` - Returns original position
+  - `getTo()` - Returns destination position
+  - `setTo(Position $to)` - Sets destination position
+</Accordion>
+
+<Accordion title="BlockItemPickupEvent">
+  **Cancellable:** Yes
+  
+  Called when a block (like hopper) picks up an item.
+  
+  **Methods:**
+  - `getOrigin()` - Returns the picking block
+  - `getItem()` - Returns the item entity being picked up
+  - `getInventory()` - Returns the inventory receiving the item
+</Accordion>
+
+<Accordion title="BlockDeathEvent">
+  **Cancellable:** No
+  
+  Called when a block is removed from the world.
+  
+  **Methods:**
+  - `getNewState()` - Returns the replacement block
+  - `getDrops()` - Returns items that will drop
+  - `setDrops(array $drops)` - Sets items to drop
+  - `getXpDropAmount()` - Returns XP to drop
+  - `setXpDropAmount(int $amount)` - Sets XP to drop
+</Accordion>
+
+## Complete Block Event List
+
+All block events:
+
+- `BaseBlockChangeEvent` - Base class for block changes
+- `BlockBreakEvent` - Player breaks block
+- `BlockBurnEvent` - Block burns
+- `BlockDeathEvent` - Block is removed
+- `BlockExplodeEvent` - Block explosion
+- `BlockFormEvent` - Block forms
+- `BlockGrowEvent` - Block grows
+- `BlockItemPickupEvent` - Block picks up item
+- `BlockMeltEvent` - Block melts
+- `BlockPlaceEvent` - Player places block
+- `BlockPreExplodeEvent` - Before explosion
+- `BlockSpreadEvent` - Block spreads
+- `BlockTeleportEvent` - Block teleports
+- `BlockUpdateEvent` - Block update
+- `BrewItemEvent` - Brewing completes
+- `BrewingFuelUseEvent` - Brewing fuel consumed
+- `CampfireCookEvent` - Campfire cooking completes
+- `ChestPairEvent` - Chests pair
+- `FarmlandHydrationChangeEvent` - Farmland hydration changes
+- `LeavesDecayEvent` - Leaves decay
+- `PressurePlateUpdateEvent` - Pressure plate state changes
+- `SignChangeEvent` - Sign text changes
+- `StructureGrowEvent` - Structure grows

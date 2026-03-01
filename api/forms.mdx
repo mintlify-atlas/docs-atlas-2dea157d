@@ -1,0 +1,489 @@
+---
+title: Form API
+description: Create custom UI forms and menus for players
+---
+
+The Form API allows you to create custom user interfaces that players can interact with. Forms are displayed as modal dialogs in the game client.
+
+## Form Interface
+
+All forms must implement the `Form` interface.
+
+### Interface Definition
+
+```php
+namespace pocketmine\form;
+
+interface Form extends \JsonSerializable {
+    /**
+     * Handles a form response from a player.
+     *
+     * @param Player $player The player who submitted the form
+     * @param mixed $data The form response data
+     * @throws FormValidationException if the data could not be processed
+     */
+    public function handleResponse(Player $player, $data) : void;
+    
+    /**
+     * Serialize form to JSON for sending to client.
+     */
+    public function jsonSerialize() : mixed;
+}
+```
+
+## Sending Forms to Players
+
+```php
+use pocketmine\player\Player;
+
+// Send a form to a player
+$player->sendForm($form);
+```
+
+## Form Types
+
+While PocketMine-MP core only provides the `Form` interface, there are three standard form types used in Bedrock Edition:
+
+1. **ModalForm** - Simple dialog with two buttons
+2. **MenuForm** - List of buttons with optional icons
+3. **CustomForm** - Complex form with multiple input elements
+
+## Creating Form Implementations
+
+### Simple Modal Form
+
+A basic yes/no dialog.
+
+```php
+use pocketmine\form\Form;
+use pocketmine\player\Player;
+
+class SimpleModalForm implements Form {
+    
+    public function __construct(
+        private string $title,
+        private string $content,
+        private string $button1Text,
+        private string $button2Text,
+        private \Closure $onSubmit
+    ){}
+    
+    public function jsonSerialize() : array {
+        return [
+            "type" => "modal",
+            "title" => $this->title,
+            "content" => $this->content,
+            "button1" => $this->button1Text,
+            "button2" => $this->button2Text
+        ];
+    }
+    
+    public function handleResponse(Player $player, $data) : void {
+        if ($data === null) {
+            // Form was closed
+            return;
+        }
+        
+        // $data is boolean: true for button1, false for button2
+        ($this->onSubmit)($player, $data);
+    }
+}
+
+// Usage
+$form = new SimpleModalForm(
+    "Confirm Action",
+    "Are you sure you want to teleport to spawn?",
+    "Yes",
+    "No",
+    function (Player $player, bool $response) : void {
+        if ($response) {
+            $player->teleport($player->getWorld()->getSpawnLocation());
+            $player->sendMessage("Teleported to spawn!");
+        } else {
+            $player->sendMessage("Teleport cancelled.");
+        }
+    }
+);
+
+$player->sendForm($form);
+```
+
+### Menu Form
+
+A list of clickable buttons.
+
+```php
+use pocketmine\form\Form;
+use pocketmine\player\Player;
+
+class SimpleMenuForm implements Form {
+    
+    private array $buttons = [];
+    
+    public function __construct(
+        private string $title,
+        private string $content = ""
+    ){}
+    
+    public function addButton(string $text, ?string $iconPath = null, ?\Closure $onClick = null) : void {
+        $button = ["text" => $text];
+        
+        if ($iconPath !== null) {
+            $button["image"] = [
+                "type" => "path",
+                "data" => $iconPath
+            ];
+        }
+        
+        $this->buttons[] = [
+            "button" => $button,
+            "onClick" => $onClick
+        ];
+    }
+    
+    public function jsonSerialize() : array {
+        return [
+            "type" => "form",
+            "title" => $this->title,
+            "content" => $this->content,
+            "buttons" => array_map(fn($b) => $b["button"], $this->buttons)
+        ];
+    }
+    
+    public function handleResponse(Player $player, $data) : void {
+        if ($data === null || !isset($this->buttons[$data])) {
+            return;
+        }
+        
+        $onClick = $this->buttons[$data]["onClick"];
+        if ($onClick !== null) {
+            $onClick($player);
+        }
+    }
+}
+
+// Usage
+$form = new SimpleMenuForm("Main Menu", "Select an option:");
+
+$form->addButton("Teleport to Spawn", "textures/blocks/grass", function (Player $player) : void {
+    $player->teleport($player->getWorld()->getSpawnLocation());
+    $player->sendMessage("Teleported to spawn!");
+});
+
+$form->addButton("View Stats", "textures/items/book_normal", function (Player $player) : void {
+    $player->sendMessage("Your stats: ...");
+});
+
+$form->addButton("Settings", "textures/ui/settings_glyph_color_2x", function (Player $player) : void {
+    // Open settings form
+});
+
+$player->sendForm($form);
+```
+
+### Custom Form
+
+A complex form with various input types.
+
+```php
+use pocketmine\form\Form;
+use pocketmine\form\FormValidationException;
+use pocketmine\player\Player;
+
+class SimpleCustomForm implements Form {
+    
+    private array $elements = [];
+    
+    public function __construct(
+        private string $title,
+        private \Closure $onSubmit
+    ){}
+    
+    public function addLabel(string $text) : void {
+        $this->elements[] = [
+            "type" => "label",
+            "text" => $text
+        ];
+    }
+    
+    public function addInput(string $text, string $placeholder = "", string $default = "") : void {
+        $this->elements[] = [
+            "type" => "input",
+            "text" => $text,
+            "placeholder" => $placeholder,
+            "default" => $default
+        ];
+    }
+    
+    public function addToggle(string $text, bool $default = false) : void {
+        $this->elements[] = [
+            "type" => "toggle",
+            "text" => $text,
+            "default" => $default
+        ];
+    }
+    
+    public function addSlider(string $text, float $min, float $max, float $step = 1.0, float $default = null) : void {
+        $this->elements[] = [
+            "type" => "slider",
+            "text" => $text,
+            "min" => $min,
+            "max" => $max,
+            "step" => $step,
+            "default" => $default ?? $min
+        ];
+    }
+    
+    public function addDropdown(string $text, array $options, int $default = 0) : void {
+        $this->elements[] = [
+            "type" => "dropdown",
+            "text" => $text,
+            "options" => $options,
+            "default" => $default
+        ];
+    }
+    
+    public function jsonSerialize() : array {
+        return [
+            "type" => "custom_form",
+            "title" => $this->title,
+            "content" => $this->elements
+        ];
+    }
+    
+    public function handleResponse(Player $player, $data) : void {
+        if ($data === null) {
+            return;
+        }
+        
+        if (!is_array($data)) {
+            throw new FormValidationException("Expected array response");
+        }
+        
+        ($this->onSubmit)($player, $data);
+    }
+}
+
+// Usage
+$form = new SimpleCustomForm(
+    "Player Settings",
+    function (Player $player, array $data) : void {
+        [$label, $username, $pvpEnabled, $volume, $gamemode] = $data;
+        
+        // Process form data
+        $player->sendMessage("Settings saved!");
+        $player->sendMessage("PvP: " . ($pvpEnabled ? "Enabled" : "Disabled"));
+        $player->sendMessage("Volume: $volume");
+    }
+);
+
+$form->addLabel("Configure your settings:");
+$form->addInput("Username", "Enter username", $player->getName());
+$form->addToggle("Enable PvP", true);
+$form->addSlider("Volume", 0, 100, 1, 50);
+$form->addDropdown("Preferred Gamemode", ["Survival", "Creative", "Adventure"], 0);
+
+$player->sendForm($form);
+```
+
+## Form Element Types
+
+Custom forms support various input elements:
+
+### Label
+
+```php
+[
+    "type" => "label",
+    "text" => "Display text"
+]
+```
+
+### Input (Text Field)
+
+```php
+[
+    "type" => "input",
+    "text" => "Label",
+    "placeholder" => "Placeholder text",
+    "default" => "Default value"
+]
+```
+
+### Toggle (Checkbox)
+
+```php
+[
+    "type" => "toggle",
+    "text" => "Label",
+    "default" => false
+]
+```
+
+### Slider
+
+```php
+[
+    "type" => "slider",
+    "text" => "Label",
+    "min" => 0.0,
+    "max" => 100.0,
+    "step" => 1.0,
+    "default" => 50.0
+]
+```
+
+### Dropdown (Select)
+
+```php
+[
+    "type" => "dropdown",
+    "text" => "Label",
+    "options" => ["Option 1", "Option 2", "Option 3"],
+    "default" => 0
+]
+```
+
+### Step Slider
+
+```php
+[
+    "type" => "step_slider",
+    "text" => "Label",
+    "steps" => ["Easy", "Normal", "Hard"],
+    "default" => 1
+]
+```
+
+## Advanced Example: Shop Form
+
+```php
+class ShopForm implements Form {
+    
+    private array $items;
+    
+    public function __construct() {
+        $this->items = [
+            [
+                "name" => "Diamond Sword",
+                "price" => 100,
+                "item" => VanillaItems::DIAMOND_SWORD()
+            ],
+            [
+                "name" => "Golden Apple",
+                "price" => 50,
+                "item" => VanillaItems::GOLDEN_APPLE()
+            ],
+            [
+                "name" => "Diamond Armor Set",
+                "price" => 500,
+                "item" => null // Special case
+            ]
+        ];
+    }
+    
+    public function jsonSerialize() : array {
+        $buttons = [];
+        foreach ($this->items as $item) {
+            $buttons[] = [
+                "text" => $item["name"] . "\n$" . $item["price"]
+            ];
+        }
+        
+        return [
+            "type" => "form",
+            "title" => "Shop",
+            "content" => "Select an item to purchase:",
+            "buttons" => $buttons
+        ];
+    }
+    
+    public function handleResponse(Player $player, $data) : void {
+        if ($data === null || !isset($this->items[$data])) {
+            return;
+        }
+        
+        $item = $this->items[$data];
+        $economy = EconomyAPI::getInstance();
+        
+        if ($economy->getMoney($player) < $item["price"]) {
+            $player->sendMessage("You don't have enough money!");
+            return;
+        }
+        
+        // Show confirmation
+        $confirm = new SimpleModalForm(
+            "Confirm Purchase",
+            "Buy {$item['name']} for $" . $item["price"] . "?",
+            "Buy",
+            "Cancel",
+            function (Player $player, bool $response) use ($item, $economy) : void {
+                if (!$response) {
+                    return;
+                }
+                
+                $economy->reduceMoney($player, $item["price"]);
+                
+                if ($item["item"] !== null) {
+                    $player->getInventory()->addItem($item["item"]);
+                }
+                
+                $player->sendMessage("Successfully purchased {$item['name']}!");
+            }
+        );
+        
+        $player->sendForm($confirm);
+    }
+}
+```
+
+## Form Validation
+
+Always validate form responses to prevent exploits:
+
+```php
+public function handleResponse(Player $player, $data) : void {
+    if ($data === null) {
+        // Form was closed
+        return;
+    }
+    
+    if (!is_array($data)) {
+        throw new FormValidationException("Expected array response");
+    }
+    
+    // Validate number of elements
+    if (count($data) !== $this->expectedElements) {
+        throw new FormValidationException("Invalid number of form elements");
+    }
+    
+    // Validate individual elements
+    if (!is_string($data[0]) || strlen($data[0]) > 100) {
+        throw new FormValidationException("Invalid input field");
+    }
+    
+    if (!is_bool($data[1])) {
+        throw new FormValidationException("Invalid toggle field");
+    }
+    
+    // Process validated data
+}
+```
+
+## Best Practices
+
+1. **Validate All Input**: Always validate form responses to prevent client-side manipulation
+
+2. **Handle Null Responses**: Players can close forms without submitting - always check for null
+
+3. **Use Closures Carefully**: Be mindful of variable scope when using closures in form callbacks
+
+4. **Error Handling**: Provide clear error messages when validation fails
+
+5. **User Feedback**: Always send confirmation messages after successful form submission
+
+6. **Chain Forms**: Create multi-step workflows by opening new forms from callbacks
+
+7. **Icons**: Use texture paths for button icons to improve visual appeal
+
+8. **Keep It Simple**: Don't overwhelm players with too many form elements at once

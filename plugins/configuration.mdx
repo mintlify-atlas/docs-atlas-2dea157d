@@ -1,0 +1,563 @@
+---
+title: Configuration
+description: Managing config files, saving and loading settings in PocketMine-MP
+---
+
+Configuration files allow your plugin to store settings that users can modify. PocketMine-MP provides the `Config` class to easily work with YAML, JSON, and other formats.
+
+## Config File Formats
+
+PocketMine-MP supports multiple configuration formats:
+
+- **YAML** (`.yml`) - Human-readable, most common
+- **JSON** (`.json`) - Structured data
+- **Properties** (`.properties`) - Key-value pairs
+- **Serialized** (`.sl`) - PHP serialized data
+
+<Note>
+YAML is recommended for plugin configs because it's easy to read and edit.
+</Note>
+
+## Default Config (config.yml)
+
+Every plugin can have a default `config.yml` file.
+
+<Steps>
+
+<Step title="Create resources/config.yml">
+
+Create a default config in your plugin's resources folder:
+
+```yaml resources/config.yml
+# MyPlugin Configuration
+
+# Enable plugin features
+enabled: true
+
+# Maximum players in game
+max-players: 10
+
+# Spawn location
+spawn:
+  world: world
+  x: 0
+  y: 64
+  z: 0
+
+# Messages
+messages:
+  welcome: "Welcome to the server!"
+  goodbye: "See you later!"
+
+# List of banned items
+banned-items:
+  - diamond_sword
+  - tnt
+  - bedrock
+```
+
+</Step>
+
+<Step title="Load config in your plugin">
+
+```php src/MyPlugin/Main.php
+<?php
+
+declare(strict_types=1);
+
+namespace MyPlugin;
+
+use pocketmine\plugin\PluginBase;
+
+class Main extends PluginBase {
+    
+    protected function onEnable() : void {
+        // Save default config.yml if it doesn't exist
+        $this->saveDefaultConfig();
+        
+        // Access config values
+        $enabled = $this->getConfig()->get("enabled", true);
+        $maxPlayers = $this->getConfig()->get("max-players", 10);
+        
+        $this->getLogger()->info("Enabled: " . ($enabled ? "yes" : "no"));
+        $this->getLogger()->info("Max players: " . $maxPlayers);
+    }
+}
+```
+
+</Step>
+
+</Steps>
+
+## Reading Config Values
+
+### Simple Values
+
+```php
+// Get a value (returns null if not found)
+$value = $this->getConfig()->get("key");
+
+// Get with default value
+$value = $this->getConfig()->get("key", "default");
+
+// Get specific types
+$enabled = $this->getConfig()->get("enabled", true);  // boolean
+$maxPlayers = (int) $this->getConfig()->get("max-players", 10);  // int
+$message = (string) $this->getConfig()->get("welcome-message", "Hi");  // string
+```
+
+### Nested Values
+
+```yaml
+spawn:
+  world: world
+  x: 0
+  y: 64
+  z: 0
+```
+
+```php
+// Get nested value with dot notation
+$world = $this->getConfig()->getNested("spawn.world", "world");
+$x = (int) $this->getConfig()->getNested("spawn.x", 0);
+$y = (int) $this->getConfig()->getNested("spawn.y", 64);
+$z = (int) $this->getConfig()->getNested("spawn.z", 0);
+
+// Or get entire section as array
+$spawn = $this->getConfig()->get("spawn");
+if(is_array($spawn)) {
+    $world = $spawn["world"] ?? "world";
+    $x = $spawn["x"] ?? 0;
+}
+```
+
+### Lists/Arrays
+
+```yaml
+banned-items:
+  - diamond_sword
+  - tnt
+  - bedrock
+```
+
+```php
+$bannedItems = $this->getConfig()->get("banned-items", []);
+
+if(is_array($bannedItems)) {
+    foreach($bannedItems as $item) {
+        $this->getLogger()->info("Banned: " . $item);
+    }
+}
+
+// Check if item is in list
+if(in_array("tnt", $bannedItems, true)) {
+    // TNT is banned
+}
+```
+
+### Get All Config Data
+
+```php
+// Get all config as array
+$allData = $this->getConfig()->getAll();
+
+foreach($allData as $key => $value) {
+    $this->getLogger()->info("$key = " . json_encode($value));
+}
+```
+
+## Writing Config Values
+
+### Set Values
+
+```php
+// Set a value
+$this->getConfig()->set("enabled", false);
+$this->getConfig()->set("max-players", 20);
+
+// Set nested value
+$this->getConfig()->setNested("spawn.x", 100);
+$this->getConfig()->setNested("spawn.y", 64);
+
+// Save changes to disk
+$this->getConfig()->save();
+```
+
+<Warning>
+Changes to the config are only saved in memory until you call `save()`!
+</Warning>
+
+### Add to Lists
+
+```php
+$bannedItems = $this->getConfig()->get("banned-items", []);
+$bannedItems[] = "flint_and_steel";
+$this->getConfig()->set("banned-items", $bannedItems);
+$this->getConfig()->save();
+```
+
+### Remove Values
+
+```php
+// Remove a key
+$this->getConfig()->remove("old-setting");
+
+// Remove nested key
+$this->getConfig()->removeNested("spawn.y");
+
+// Save
+$this->getConfig()->save();
+```
+
+## Reloading Config
+
+```php
+// Reload from disk (discards unsaved changes)
+$this->reloadConfig();
+
+// Common pattern in reload command:
+public function reloadPlugin() : void {
+    $this->reloadConfig();
+    $this->loadConfigValues();  // Re-read config values
+    $this->getLogger()->info("Config reloaded!");
+}
+```
+
+## Custom Config Files
+
+You can create additional config files beyond `config.yml`:
+
+```php
+use pocketmine\utils\Config;
+
+protected function onEnable() : void {
+    // Save default messages.yml from resources
+    $this->saveResource("messages.yml");
+    
+    // Load messages.yml
+    $messagesFile = $this->getDataFolder() . "messages.yml";
+    $messagesConfig = new Config($messagesFile, Config::YAML);
+    
+    $welcome = $messagesConfig->get("welcome", "Welcome!");
+}
+```
+
+### Using Multiple Configs
+
+```php
+class Main extends PluginBase {
+    
+    private Config $messagesConfig;
+    private Config $dataConfig;
+    
+    protected function onEnable() : void {
+        // Main config
+        $this->saveDefaultConfig();
+        
+        // Messages config
+        $this->saveResource("messages.yml");
+        $this->messagesConfig = new Config(
+            $this->getDataFolder() . "messages.yml",
+            Config::YAML
+        );
+        
+        // Data config (JSON)
+        $this->dataConfig = new Config(
+            $this->getDataFolder() . "data.json",
+            Config::JSON,
+            ["players" => [], "games" => 0]  // defaults
+        );
+    }
+    
+    public function getMessage(string $key) : string {
+        return $this->messagesConfig->get($key, "Message not found");
+    }
+    
+    public function savePlayerData(string $name, array $data) : void {
+        $players = $this->dataConfig->get("players", []);
+        $players[$name] = $data;
+        $this->dataConfig->set("players", $players);
+        $this->dataConfig->save();
+    }
+}
+```
+
+## Config File Formats
+
+### YAML Format
+
+```php
+$config = new Config($file, Config::YAML);
+```
+
+```yaml
+enabled: true
+max-players: 10
+message: "Hello World"
+list:
+  - item1
+  - item2
+nested:
+  key: value
+```
+
+### JSON Format
+
+```php
+$config = new Config($file, Config::JSON);
+```
+
+```json
+{
+  "enabled": true,
+  "max-players": 10,
+  "message": "Hello World",
+  "list": ["item1", "item2"],
+  "nested": {
+    "key": "value"
+  }
+}
+```
+
+### Properties Format
+
+```php
+$config = new Config($file, Config::PROPERTIES);
+```
+
+```properties
+enabled=true
+max-players=10
+message=Hello World
+```
+
+<Note>
+Properties format only supports simple key-value pairs, no nesting or arrays.
+</Note>
+
+## Auto-Detect Format
+
+```php
+// Automatically detect format by file extension
+$config = new Config($file, Config::DETECT);
+```
+
+## Complete Example: Game Plugin Config
+
+<CodeGroup>
+
+```yaml resources/config.yml
+# Game Plugin Configuration
+
+# Enable the game
+enabled: true
+
+# Game settings
+game:
+  min-players: 2
+  max-players: 10
+  countdown: 30
+  game-duration: 600
+
+# Spawn locations
+spawns:
+  lobby:
+    world: world
+    x: 0
+    y: 64
+    z: 0
+  game:
+    world: game_world
+    x: 100
+    y: 64
+    z: 100
+
+# Rewards
+rewards:
+  winner:
+    - diamond: 5
+    - gold_ingot: 10
+  participant:
+    - iron_ingot: 3
+
+# Messages
+messages:
+  game-start: "§aGame started!"
+  game-end: "§eGame ended!"
+  not-enough-players: "§cNot enough players"
+```
+
+```php src/GamePlugin/Main.php
+<?php
+
+declare(strict_types=1);
+
+namespace GamePlugin;
+
+use pocketmine\plugin\PluginBase;
+use pocketmine\world\Position;
+
+class Main extends PluginBase {
+    
+    private bool $enabled;
+    private int $minPlayers;
+    private int $maxPlayers;
+    private int $countdown;
+    private int $gameDuration;
+    
+    protected function onEnable() : void {
+        $this->saveDefaultConfig();
+        $this->loadConfigValues();
+    }
+    
+    private function loadConfigValues() : void {
+        $this->enabled = $this->getConfig()->get("enabled", true);
+        
+        $this->minPlayers = (int) $this->getConfig()->getNested(
+            "game.min-players", 2
+        );
+        $this->maxPlayers = (int) $this->getConfig()->getNested(
+            "game.max-players", 10
+        );
+        $this->countdown = (int) $this->getConfig()->getNested(
+            "game.countdown", 30
+        );
+        $this->gameDuration = (int) $this->getConfig()->getNested(
+            "game.game-duration", 600
+        );
+        
+        $this->getLogger()->info("Config loaded!");
+    }
+    
+    public function getLobbySpawn() : ?Position {
+        $spawn = $this->getConfig()->getNested("spawns.lobby");
+        if(!is_array($spawn)) {
+            return null;
+        }
+        
+        $worldName = $spawn["world"] ?? "world";
+        $world = $this->getServer()->getWorldManager()->getWorldByName($worldName);
+        if($world === null) {
+            return null;
+        }
+        
+        return new Position(
+            (float) ($spawn["x"] ?? 0),
+            (float) ($spawn["y"] ?? 64),
+            (float) ($spawn["z"] ?? 0),
+            $world
+        );
+    }
+    
+    public function getMessage(string $key) : string {
+        return (string) $this->getConfig()->getNested(
+            "messages." . $key,
+            "Message not found"
+        );
+    }
+    
+    public function getWinnerRewards() : array {
+        $rewards = $this->getConfig()->getNested("rewards.winner", []);
+        return is_array($rewards) ? $rewards : [];
+    }
+    
+    public function isEnabled() : bool {
+        return $this->enabled;
+    }
+    
+    public function getMinPlayers() : int {
+        return $this->minPlayers;
+    }
+    
+    public function reloadConfiguration() : void {
+        $this->reloadConfig();
+        $this->loadConfigValues();
+    }
+}
+```
+
+</CodeGroup>
+
+## Validating Config Values
+
+```php
+private function loadConfigValues() : void {
+    $this->maxPlayers = (int) $this->getConfig()->get("max-players", 10);
+    
+    // Validate
+    if($this->maxPlayers < 1 || $this->maxPlayers > 100) {
+        $this->getLogger()->warning(
+            "Invalid max-players: {$this->maxPlayers}, using default 10"
+        );
+        $this->maxPlayers = 10;
+    }
+    
+    // Validate nested value
+    $world = $this->getConfig()->getNested("spawn.world");
+    if(!is_string($world) || $world === "") {
+        $this->getLogger()->error("Invalid spawn.world in config!");
+        $this->getServer()->getPluginManager()->disablePlugin($this);
+        return;
+    }
+}
+```
+
+## Best Practices
+
+<Tip>
+
+**Always provide defaults:**
+```php
+$value = $this->getConfig()->get("key", "default_value");
+```
+
+**Validate user input:**
+```php
+if($value < 1 || $value > 100) {
+    $this->getLogger()->warning("Invalid value, using default");
+    $value = 10;
+}
+```
+
+**Save config in onDisable:**
+```php
+protected function onDisable() : void {
+    $this->getConfig()->save();
+}
+```
+
+**Cache config values:**
+```php
+// Don't do this in hot code:
+$max = $this->getConfig()->get("max-players");
+
+// Instead, cache in onEnable:
+private int $maxPlayers;
+
+protected function onEnable() : void {
+    $this->maxPlayers = (int) $this->getConfig()->get("max-players", 10);
+}
+```
+
+**Use type casting:**
+```php
+$maxPlayers = (int) $this->getConfig()->get("max-players");
+$enabled = (bool) $this->getConfig()->get("enabled");
+$message = (string) $this->getConfig()->get("message");
+```
+
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Resources" icon="folder" href="/plugins/resources">
+Work with embedded resources
+</Card>
+
+<Card title="Best Practices" icon="circle-check" href="/plugins/best-practices">
+Performance tips and common pitfalls
+</Card>
+
+</CardGroup>

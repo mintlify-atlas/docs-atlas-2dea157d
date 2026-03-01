@@ -1,0 +1,503 @@
+---
+title: Resources
+description: Working with embedded resources and the saveResource() method
+---
+
+Resources are files embedded in your plugin that can be extracted to the plugin's data folder. Common uses include default configs, language files, and data files.
+
+## Resources Folder
+
+The `resources/` folder in your plugin contains files that will be packaged with your plugin:
+
+```
+MyPlugin/
+├── plugin.yml
+├── resources/
+│   ├── config.yml          # Default configuration
+│   ├── messages.yml        # Language/message files
+│   ├── data/
+│   │   ├── items.json      # Data files
+│   │   └── recipes.json
+│   └── assets/
+│       └── logo.png
+└── src/
+    └── MyPlugin/
+        └── Main.php
+```
+
+<Note>
+Resources are read-only when accessed directly. To modify them, copy them to the data folder first.
+</Note>
+
+## Saving Resources
+
+### saveDefaultConfig()
+
+The easiest way to save your default `config.yml`:
+
+```php
+protected function onEnable() : void {
+    // Saves resources/config.yml to plugins/MyPlugin/config.yml
+    // Only saves if the file doesn't already exist
+    $this->saveDefaultConfig();
+}
+```
+
+### saveResource()
+
+Save any resource file from the resources folder:
+
+```php
+protected function onEnable() : void {
+    // Save messages.yml (only if it doesn't exist)
+    $this->saveResource("messages.yml");
+    
+    // Save file from subdirectory
+    $this->saveResource("data/items.json");
+    
+    // Force overwrite existing file
+    $this->saveResource("config.yml", true);
+}
+```
+
+**Parameters:**
+- `string $filename` - Path relative to resources folder
+- `bool $replace` - If true, overwrite existing file (default: false)
+
+**Returns:** `bool` - true on success, false on failure
+
+## Reading Resources
+
+### Reading Directly (Read-Only)
+
+Read a resource without saving it to disk:
+
+```php
+// Get full path to resource
+$path = $this->getResourcePath("data/items.json");
+
+// Read the file
+$contents = file_get_contents($path);
+$data = json_decode($contents, true);
+
+// Or use getResource() (deprecated but still works)
+$resource = $this->getResource("data/items.json");
+if($resource !== null) {
+    $contents = stream_get_contents($resource);
+    fclose($resource);
+}
+```
+
+<Warning>
+`getResource()` is deprecated. Use `getResourcePath()` with standard PHP functions instead.
+</Warning>
+
+### Reading Saved Resources
+
+Read resources that have been saved to the data folder:
+
+```php
+use pocketmine\utils\Config;
+
+protected function onEnable() : void {
+    // Save resource first
+    $this->saveResource("messages.yml");
+    
+    // Load from data folder
+    $messagesPath = $this->getDataFolder() . "messages.yml";
+    $config = new Config($messagesPath, Config::YAML);
+    
+    $welcome = $config->get("welcome", "Welcome!");
+}
+```
+
+## Common Resource Patterns
+
+### Multiple Language Files
+
+<CodeGroup>
+
+```yaml resources/languages/en_US.yml
+welcome: "Welcome to the server!"
+goodbye: "Goodbye!"
+game-start: "Game starting in {seconds} seconds"
+no-permission: "You don't have permission"
+```
+
+```yaml resources/languages/es_ES.yml
+welcome: "¡Bienvenido al servidor!"
+goodbye: "¡Adiós!"
+game-start: "Juego comenzando en {seconds} segundos"
+no-permission: "No tienes permiso"
+```
+
+```php src/MyPlugin/Main.php
+use pocketmine\utils\Config;
+
+class Main extends PluginBase {
+    
+    private Config $messages;
+    
+    protected function onEnable() : void {
+        $this->saveDefaultConfig();
+        
+        // Get language from config
+        $language = $this->getConfig()->get("language", "en_US");
+        
+        // Save and load language file
+        $this->saveResource("languages/{$language}.yml");
+        $this->messages = new Config(
+            $this->getDataFolder() . "languages/{$language}.yml",
+            Config::YAML
+        );
+    }
+    
+    public function getMessage(string $key, array $params = []) : string {
+        $message = $this->messages->get($key, "Message not found: $key");
+        
+        // Replace placeholders
+        foreach($params as $param => $value) {
+            $message = str_replace("{" . $param . "}", $value, $message);
+        }
+        
+        return $message;
+    }
+}
+
+// Usage:
+$player->sendMessage($this->getMessage("welcome"));
+$player->sendMessage($this->getMessage("game-start", ["seconds" => 30]));
+```
+
+</CodeGroup>
+
+### Data Files
+
+<CodeGroup>
+
+```json resources/data/items.json
+{
+  "special_sword": {
+    "name": "Legendary Sword",
+    "damage": 10,
+    "enchantments": ["sharpness", "fire_aspect"]
+  },
+  "magic_wand": {
+    "name": "Magic Wand",
+    "damage": 5,
+    "enchantments": ["knockback"]
+  }
+}
+```
+
+```php src/MyPlugin/ItemManager.php
+class ItemManager {
+    
+    private array $items = [];
+    
+    public function __construct(
+        private Main $plugin
+    ){
+        $this->loadItems();
+    }
+    
+    private function loadItems() : void {
+        // Read directly from resources (read-only)
+        $path = $this->plugin->getResourcePath("data/items.json");
+        $contents = file_get_contents($path);
+        $this->items = json_decode($contents, true) ?? [];
+        
+        $this->plugin->getLogger()->info(
+            "Loaded " . count($this->items) . " items"
+        );
+    }
+    
+    public function getItemData(string $id) : ?array {
+        return $this->items[$id] ?? null;
+    }
+}
+```
+
+</CodeGroup>
+
+### Default Configuration with Comments
+
+```yaml resources/config.yml
+# MyPlugin Configuration File
+# 
+# This file is automatically generated when the plugin first loads.
+# You can edit this file to customize the plugin's behavior.
+
+# Enable or disable the plugin
+enabled: true
+
+# Maximum number of players
+# Min: 1, Max: 100
+max-players: 10
+
+# Game settings
+game:
+  # Countdown before game starts (in seconds)
+  countdown: 30
+  
+  # Game duration (in seconds)
+  duration: 600
+  
+  # Enable friendly fire
+  friendly-fire: false
+
+# Language (available: en_US, es_ES, fr_FR)
+language: en_US
+
+# Debug mode - prints additional information
+debug: false
+```
+
+## Listing All Resources
+
+Get all resources in your plugin:
+
+```php
+protected function onEnable() : void {
+    $resources = $this->getResources();
+    
+    foreach($resources as $path => $fileInfo) {
+        $this->getLogger()->debug("Resource: " . $path);
+    }
+}
+```
+
+## Data Folder vs Resources Folder
+
+### Resources Folder
+
+- **Location:** Inside your plugin (e.g., `plugins/MyPlugin.phar/resources/`)
+- **Access:** Read-only
+- **Purpose:** Default files shipped with plugin
+- **Modified:** Never (comes with plugin)
+
+```php
+// Access resource path
+$path = $this->getResourcePath("config.yml");
+
+// Read resource
+$contents = file_get_contents($path);
+```
+
+### Data Folder
+
+- **Location:** `plugins/MyPlugin/`
+- **Access:** Read and write
+- **Purpose:** User-editable files, saved data
+- **Modified:** By users and plugin
+
+```php
+// Get data folder
+$dataFolder = $this->getDataFolder();
+
+// Read/write files
+$configPath = $dataFolder . "config.yml";
+file_put_contents($dataPath, $data);
+```
+
+## Complete Example: Multi-File Plugin
+
+<CodeGroup>
+
+```
+MyPlugin/
+├── plugin.yml
+├── resources/
+│   ├── config.yml
+│   ├── messages.yml
+│   └── data/
+│       ├── items.json
+│       └── kits.json
+└── src/
+    └── MyPlugin/
+        └── Main.php
+```
+
+```yaml resources/config.yml
+enabled: true
+language: en_US
+debug: false
+```
+
+```yaml resources/messages.yml
+welcome: "Welcome {player}!"
+kill: "{killer} killed {victim}"
+no-permission: "You don't have permission"
+```
+
+```json resources/data/items.json
+{
+  "sword": {"name": "Legendary Sword", "damage": 10},
+  "bow": {"name": "Power Bow", "damage": 8}
+}
+```
+
+```php src/MyPlugin/Main.php
+<?php
+
+declare(strict_types=1);
+
+namespace MyPlugin;
+
+use pocketmine\plugin\PluginBase;
+use pocketmine\utils\Config;
+
+class Main extends PluginBase {
+    
+    private Config $messages;
+    private array $items = [];
+    
+    protected function onEnable() : void {
+        // Save default config
+        $this->saveDefaultConfig();
+        
+        // Save messages.yml
+        $this->saveResource("messages.yml");
+        $this->messages = new Config(
+            $this->getDataFolder() . "messages.yml",
+            Config::YAML
+        );
+        
+        // Load items directly from resources (read-only)
+        $this->loadItems();
+        
+        $this->getLogger()->info("Plugin loaded with " . count($this->items) . " items");
+    }
+    
+    private function loadItems() : void {
+        $path = $this->getResourcePath("data/items.json");
+        $contents = file_get_contents($path);
+        $this->items = json_decode($contents, true) ?? [];
+    }
+    
+    public function getMessage(string $key, array $params = []) : string {
+        $message = $this->messages->get($key, "Unknown message");
+        
+        foreach($params as $param => $value) {
+            $message = str_replace("{" . $param . "}", $value, $message);
+        }
+        
+        return $message;
+    }
+    
+    public function getItemData(string $id) : ?array {
+        return $this->items[$id] ?? null;
+    }
+}
+```
+
+</CodeGroup>
+
+## Best Practices
+
+<Tip>
+
+**Always provide default resources:**
+```php
+$this->saveDefaultConfig();
+$this->saveResource("messages.yml");
+```
+
+**Don't overwrite user changes:**
+```php
+// Good - only saves if file doesn't exist
+$this->saveResource("config.yml");
+
+// Bad - overwrites user's config
+$this->saveResource("config.yml", true);
+```
+
+**Use getResourcePath() instead of getResource():**
+```php
+// Recommended
+$path = $this->getResourcePath("file.txt");
+$contents = file_get_contents($path);
+
+// Deprecated
+$resource = $this->getResource("file.txt");
+$contents = stream_get_contents($resource);
+fclose($resource);
+```
+
+**Cache resource data:**
+```php
+// Don't read resources repeatedly in hot code
+private array $cachedData;
+
+protected function onEnable() : void {
+    $path = $this->getResourcePath("data.json");
+    $this->cachedData = json_decode(file_get_contents($path), true);
+}
+```
+
+**Organize resources in subdirectories:**
+```
+resources/
+├── config.yml
+├── languages/
+│   ├── en_US.yml
+│   └── es_ES.yml
+└── data/
+    ├── items.json
+    └── kits.json
+```
+
+</Tip>
+
+## Resource Paths
+
+Understanding resource paths:
+
+```php
+// Plugin folder (usually plugins/MyPlugin/ or plugins/MyPlugin.phar)
+$pluginFolder = $this->getFile();
+
+// Resources folder (pluginFolder/resources/)
+$resourcesFolder = $this->getResourceFolder();
+
+// Specific resource path
+$configPath = $this->getResourcePath("config.yml");
+// Returns: plugins/MyPlugin/resources/config.yml
+
+$itemsPath = $this->getResourcePath("data/items.json");
+// Returns: plugins/MyPlugin/resources/data/items.json
+
+// Data folder (where resources are copied to)
+$dataFolder = $this->getDataFolder();
+// Returns: plugins/MyPlugin/
+```
+
+## Checking Resource Existence
+
+```php
+protected function onEnable() : void {
+    // Check if resource exists before saving
+    $resourcePath = $this->getResourcePath("optional.yml");
+    
+    if(file_exists($resourcePath)) {
+        $this->saveResource("optional.yml");
+        $this->getLogger()->info("Loaded optional config");
+    } else {
+        $this->getLogger()->warning("Optional config not found");
+    }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Best Practices" icon="circle-check" href="/plugins/best-practices">
+Performance tips and common pitfalls
+</Card>
+
+<Card title="Getting Started" icon="rocket" href="/plugins/getting-started">
+Create your first plugin
+</Card>
+
+</CardGroup>

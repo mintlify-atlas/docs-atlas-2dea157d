@@ -1,97 +1,126 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: Introduction to PocketMine-MP
+description: A highly customisable, open source server software for Minecraft Bedrock Edition written in PHP
 ---
 
-## Setting up
+# Welcome to PocketMine-MP
 
-Get your documentation site up and running in minutes.
+PocketMine-MP is a highly customisable server software for Minecraft: Bedrock Edition, built from scratch in PHP, with over 10 years of history.
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+If you're looking to create a Minecraft: Bedrock server with **custom functionality**, look no further.
 
-## Make it yours
+## What Makes PocketMine-MP Special?
 
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Powerful Plugin API" icon="plug">
+    Extend and customise gameplay as you see fit with a comprehensive plugin system
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Rich Ecosystem" icon="users">
+    Large developer community and extensive plugin repository on Poggit
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Multi-World Support" icon="globe">
+    Offer varied game experiences without transferring players to other server nodes
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="High Performance" icon="gauge-high">
+    Support 100+ players on one server depending on hardware and plugins
   </Card>
-</Columns>
+  <Card title="Continuously Updated" icon="arrow-up">
+    New Minecraft versions are usually supported within days of release
+  </Card>
+  <Card title="Written in PHP" icon="code">
+    Easy to learn, with accessible plugin development for all skill levels
+  </Card>
+</CardGroup>
 
-## Create beautiful pages
+## Important Notice
 
-Everything you need to create world-class documentation.
+<Warning>
+  PocketMine-MP is **NOT** a vanilla Minecraft server software. It is poorly suited to hosting vanilla survival servers.
+  
+  It doesn't have many features from the vanilla game, such as:
+  - Vanilla world generation
+  - Redstone
+  - Mob AI
+  - Various other vanilla features
+  
+  If you just want to play vanilla survival multiplayer, consider using the [official Minecraft: Bedrock server software](https://minecraft.net/download/server/bedrock) instead.
+</Warning>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+<Info>
+  You may be able to add some of PocketMine-MP's missing features using plugins from [Poggit](https://poggit.pmmp.io/plugins), or write plugins to implement them yourself.
+</Info>
 
-## Need inspiration?
+## Getting Started
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install PocketMine-MP on your platform of choice
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get your server running and create your first plugin
+  </Card>
+  <Card title="Docker Setup" icon="docker" href="/docker">
+    Run PocketMine-MP in a Docker container
+  </Card>
+  <Card title="Plugin Development" icon="hammer">
+    Learn to develop custom plugins for your server
+  </Card>
+</CardGroup>
+
+## Key Features
+
+### Plugin System
+PocketMine-MP's plugin API allows you to:
+- Listen to and handle game events
+- Create custom commands
+- Modify game mechanics
+- Add new items and blocks
+- Integrate with external services
+
+### Multi-World Management
+Run multiple worlds simultaneously on a single server instance:
+- Different world generators
+- Separate game modes per world
+- Easy player teleportation between worlds
+- Individual world settings
+
+### Developer-Friendly
+- Comprehensive API documentation
+- Active community support
+- Example plugins and tutorials
+- DevTools for plugin development
+- Regular updates and improvements
+
+## Community & Support
+
+<CardGroup cols={2}>
+  <Card title="Discord" icon="discord" href="https://discord.gg/bmSAZBG">
+    Join our Discord server to chat with other users and developers
+  </Card>
+  <Card title="Plugin Repository" icon="box" href="https://poggit.pmmp.io/plugins">
+    Browse and download plugins from Poggit
+  </Card>
+  <Card title="Documentation" icon="book" href="https://devdoc.pmmp.io">
+    Read the developer documentation
+  </Card>
+  <Card title="GitHub" icon="github" href="https://github.com/pmmp/PocketMine-MP">
+    View source code and contribute
+  </Card>
+</CardGroup>
+
+## Ready to Begin?
+
+<Steps>
+  <Step title="Install PocketMine-MP">
+    Follow our [installation guide](/installation) to set up PocketMine-MP on your system
+  </Step>
+  <Step title="Configure Your Server">
+    Customize server settings, world generation, and properties
+  </Step>
+  <Step title="Add Plugins">
+    Browse [Poggit](https://poggit.pmmp.io/plugins) for plugins or create your own
+  </Step>
+  <Step title="Launch Your Server">
+    Start your server and invite players to join
+  </Step>
+</Steps>

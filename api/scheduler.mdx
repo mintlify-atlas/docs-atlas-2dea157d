@@ -1,0 +1,540 @@
+---
+title: 'Scheduler API'
+description: 'TaskScheduler and Task API reference for PocketMine-MP'
+---
+
+## Overview
+
+The Scheduler API allows you to schedule tasks to run at specific intervals on the main server thread. All plugins have their own TaskScheduler instance.
+
+## Getting the Scheduler
+
+```php Getting scheduler from plugin
+// In your plugin's main class
+$scheduler = $this->getScheduler();
+
+// Or from Server
+$plugin = $this->getServer()->getPluginManager()->getPlugin("MyPlugin");
+$scheduler = $plugin->getScheduler();
+```
+
+## Creating Tasks
+
+### Method 1: Extending Task Class
+
+```php Creating a custom task
+<?php
+
+namespace MyPlugin\tasks;
+
+use pocketmine\scheduler\Task;
+
+class MyTask extends Task {
+    
+    private int $counter = 0;
+    
+    public function onRun() : void {
+        $this->counter++;
+        
+        // Your task logic here
+        $server = \pocketmine\Server::getInstance();
+        $server->getLogger()->info("Task ran {$this->counter} times!");
+        
+        // Cancel after 10 runs
+        if($this->counter >= 10) {
+            $this->getHandler()?->cancel();
+        }
+    }
+    
+    public function onCancel() : void {
+        $server = \pocketmine\Server::getInstance();
+        $server->getLogger()->info("Task was cancelled!");
+    }
+}
+```
+
+### Method 2: Using Closures
+
+For simple tasks, use `ClosureTask`:
+
+```php Using closure tasks
+use pocketmine\scheduler\ClosureTask;
+
+$scheduler->scheduleRepeatingTask(new ClosureTask(function() : void {
+    $this->getLogger()->info("Task running!");
+}), 20); // Every second
+```
+
+## TaskScheduler Class
+
+### scheduleTask()
+
+Schedules a task to run as soon as possible (next tick).
+
+```php scheduleTask() : TaskHandler
+public function scheduleTask(Task $task) : TaskHandler
+```
+
+<ParamField path="task" type="Task" required>
+  The task to schedule
+</ParamField>
+
+**Returns:** `TaskHandler` - Handler for managing the task
+
+**Example:**
+```php
+$handler = $this->getScheduler()->scheduleTask(new MyTask());
+```
+
+### scheduleDelayedTask()
+
+Schedules a task to run after a delay.
+
+```php scheduleDelayedTask() : TaskHandler
+public function scheduleDelayedTask(Task $task, int $delay) : TaskHandler
+```
+
+<ParamField path="task" type="Task" required>
+  The task to schedule
+</ParamField>
+
+<ParamField path="delay" type="int" required>
+  Delay in ticks (20 ticks = 1 second)
+</ParamField>
+
+**Returns:** `TaskHandler` - Handler for managing the task
+
+**Example:**
+```php
+// Run after 5 seconds
+$handler = $this->getScheduler()->scheduleDelayedTask(
+    new MyTask(),
+    20 * 5
+);
+```
+
+### scheduleRepeatingTask()
+
+Schedules a task to run repeatedly at a fixed interval.
+
+```php scheduleRepeatingTask() : TaskHandler
+public function scheduleRepeatingTask(Task $task, int $period) : TaskHandler
+```
+
+<ParamField path="task" type="Task" required>
+  The task to schedule
+</ParamField>
+
+<ParamField path="period" type="int" required>
+  Period between runs in ticks (20 ticks = 1 second)
+</ParamField>
+
+**Returns:** `TaskHandler` - Handler for managing the task
+
+**Example:**
+```php
+// Run every 1 second
+$handler = $this->getScheduler()->scheduleRepeatingTask(
+    new MyTask(),
+    20
+);
+
+// Run every 30 seconds
+$handler = $this->getScheduler()->scheduleRepeatingTask(
+    new SaveTask(),
+    20 * 30
+);
+```
+
+### scheduleDelayedRepeatingTask()
+
+Schedules a task to run repeatedly after an initial delay.
+
+```php scheduleDelayedRepeatingTask() : TaskHandler
+public function scheduleDelayedRepeatingTask(
+    Task $task,
+    int $delay,
+    int $period
+) : TaskHandler
+```
+
+<ParamField path="task" type="Task" required>
+  The task to schedule
+</ParamField>
+
+<ParamField path="delay" type="int" required>
+  Initial delay in ticks before first run
+</ParamField>
+
+<ParamField path="period" type="int" required>
+  Period between runs in ticks
+</ParamField>
+
+**Returns:** `TaskHandler` - Handler for managing the task
+
+**Example:**
+```php
+// Wait 10 seconds, then run every 5 seconds
+$handler = $this->getScheduler()->scheduleDelayedRepeatingTask(
+    new MyTask(),
+    20 * 10,  // 10 second delay
+    20 * 5    // 5 second period
+);
+```
+
+### cancelAllTasks()
+
+Cancels all tasks scheduled by this scheduler.
+
+```php cancelAllTasks() : void
+public function cancelAllTasks() : void
+```
+
+**Example:**
+```php
+protected function onDisable() : void {
+    $this->getScheduler()->cancelAllTasks();
+}
+```
+
+## Task Class
+
+### onRun()
+
+Executed when the task runs. Must be implemented by subclasses.
+
+```php onRun() : void
+abstract public function onRun() : void
+```
+
+**Example:**
+```php
+public function onRun() : void {
+    $server = Server::getInstance();
+    
+    foreach($server->getOnlinePlayers() as $player) {
+        $player->sendTip("Auto-save in progress...");
+    }
+    
+    foreach($server->getWorldManager()->getWorlds() as $world) {
+        $world->save();
+    }
+}
+```
+
+### onCancel()
+
+Executed when the task is cancelled. Override this to clean up resources.
+
+```php onCancel() : void
+public function onCancel() : void
+```
+
+**Example:**
+```php
+public function onCancel() : void {
+    $this->plugin->getLogger()->info("Task cancelled - saving data...");
+    $this->saveData();
+}
+```
+
+### getHandler()
+
+Gets the task handler for this task.
+
+```php getHandler() : ?TaskHandler
+final public function getHandler() : ?TaskHandler
+```
+
+**Returns:** `TaskHandler|null` - The handler, or null if not scheduled
+
+**Example:**
+```php
+public function onRun() : void {
+    if($this->shouldStop()) {
+        $this->getHandler()?->cancel();
+    }
+}
+```
+
+### getName()
+
+Gets a human-readable name for the task.
+
+```php getName() : string
+public function getName() : string
+```
+
+**Returns:** `string` - Task name (defaults to class name)
+
+## TaskHandler Class
+
+The `TaskHandler` is returned when scheduling a task and provides control over the scheduled task.
+
+### cancel()
+
+Cancels the task.
+
+```php
+$handler = $this->getScheduler()->scheduleRepeatingTask(new MyTask(), 20);
+
+// Cancel later
+$handler->cancel();
+```
+
+### isCancelled()
+
+Checks if the task is cancelled.
+
+```php
+if($handler->isCancelled()) {
+    $this->getLogger()->info("Task is cancelled");
+}
+```
+
+### getTask()
+
+Gets the task instance.
+
+```php
+$task = $handler->getTask();
+```
+
+## Practical Examples
+
+### Auto-Save Task
+
+```php Auto-save worlds every 5 minutes
+<?php
+
+namespace MyPlugin\tasks;
+
+use pocketmine\scheduler\Task;
+use pocketmine\Server;
+
+class AutoSaveTask extends Task {
+    
+    public function onRun() : void {
+        $server = Server::getInstance();
+        $server->getLogger()->info("Auto-saving worlds...");
+        
+        foreach($server->getWorldManager()->getWorlds() as $world) {
+            $world->save();
+        }
+        
+        $server->getLogger()->info("Auto-save complete!");
+    }
+}
+
+// In plugin main class
+protected function onEnable() : void {
+    $this->getScheduler()->scheduleRepeatingTask(
+        new AutoSaveTask(),
+        20 * 60 * 5  // Every 5 minutes
+    );
+}
+```
+
+### Countdown Task
+
+```php Countdown task with cancellation
+<?php
+
+namespace MyPlugin\tasks;
+
+use pocketmine\scheduler\Task;
+use pocketmine\Server;
+
+class CountdownTask extends Task {
+    
+    private int $seconds;
+    
+    public function __construct(
+        private string $message,
+        int $seconds
+    ) {
+        $this->seconds = $seconds;
+    }
+    
+    public function onRun() : void {
+        $server = Server::getInstance();
+        
+        if($this->seconds <= 0) {
+            $server->broadcastMessage($this->message);
+            $this->getHandler()?->cancel();
+            return;
+        }
+        
+        if($this->seconds <= 10 || $this->seconds % 30 === 0) {
+            $server->broadcastMessage("{$this->seconds} seconds remaining...");
+        }
+        
+        $this->seconds--;
+    }
+    
+    public function onCancel() : void {
+        Server::getInstance()->getLogger()->info("Countdown cancelled");
+    }
+}
+
+// Usage
+$this->getScheduler()->scheduleRepeatingTask(
+    new CountdownTask("Server restarting now!", 300),
+    20  // Run every second
+);
+```
+
+### Delayed Teleport
+
+```php Teleport with delay and cancellation
+<?php
+
+namespace MyPlugin\tasks;
+
+use pocketmine\scheduler\Task;
+use pocketmine\player\Player;
+use pocketmine\world\Position;
+
+class DelayedTeleportTask extends Task {
+    
+    private Position $originalPos;
+    
+    public function __construct(
+        private Player $player,
+        private Position $destination,
+        private int $seconds
+    ) {
+        $this->originalPos = $player->getPosition();
+    }
+    
+    public function onRun() : void {
+        $this->seconds--;
+        
+        // Cancel if player moved
+        if($this->player->getPosition()->distance($this->originalPos) > 0.5) {
+            $this->player->sendMessage("Teleportation cancelled - you moved!");
+            $this->getHandler()?->cancel();
+            return;
+        }
+        
+        // Cancel if player is offline
+        if(!$this->player->isConnected()) {
+            $this->getHandler()?->cancel();
+            return;
+        }
+        
+        if($this->seconds > 0) {
+            $this->player->sendTip("Teleporting in {$this->seconds}...");
+        } else {
+            $this->player->teleport($this->destination);
+            $this->player->sendMessage("Teleported!");
+            $this->getHandler()?->cancel();
+        }
+    }
+    
+    public function onCancel() : void {
+        // Cleanup if needed
+    }
+}
+
+// Usage
+$this->getScheduler()->scheduleRepeatingTask(
+    new DelayedTeleportTask($player, $destination, 5),
+    20  // Check every second
+);
+```
+
+### Broadcast Task
+
+```php Periodic broadcast messages
+<?php
+
+namespace MyPlugin\tasks;
+
+use pocketmine\scheduler\Task;
+use pocketmine\Server;
+
+class BroadcastTask extends Task {
+    
+    private array $messages;
+    private int $currentIndex = 0;
+    
+    public function __construct(array $messages) {
+        $this->messages = $messages;
+    }
+    
+    public function onRun() : void {
+        if(empty($this->messages)) {
+            return;
+        }
+        
+        $message = $this->messages[$this->currentIndex];
+        Server::getInstance()->broadcastMessage($message);
+        
+        $this->currentIndex++;
+        if($this->currentIndex >= count($this->messages)) {
+            $this->currentIndex = 0;
+        }
+    }
+}
+
+// In plugin main class
+protected function onEnable() : void {
+    $messages = $this->getConfig()->get("broadcast-messages", []);
+    
+    $this->getScheduler()->scheduleRepeatingTask(
+        new BroadcastTask($messages),
+        20 * 60 * 5  // Every 5 minutes
+    );
+}
+```
+
+## Best Practices
+
+1. **Always cancel tasks in onDisable()**
+   ```php
+   protected function onDisable() : void {
+       $this->getScheduler()->cancelAllTasks();
+   }
+   ```
+
+2. **Check if players are still online**
+   ```php
+   public function onRun() : void {
+       if(!$this->player->isConnected()) {
+           $this->getHandler()?->cancel();
+           return;
+       }
+   }
+   ```
+
+3. **Use appropriate intervals**
+   - 20 ticks = 1 second
+   - For heavy operations, use longer intervals
+   - For time-sensitive operations, use shorter intervals
+
+4. **Store TaskHandler for later cancellation**
+   ```php
+   private ?TaskHandler $taskHandler = null;
+   
+   public function startTask() : void {
+       $this->taskHandler = $this->getScheduler()->scheduleRepeatingTask(
+           new MyTask(),
+           20
+       );
+   }
+   
+   public function stopTask() : void {
+       $this->taskHandler?->cancel();
+   }
+   ```
+
+5. **Use closures for simple tasks**
+   ```php
+   use pocketmine\scheduler\ClosureTask;
+   
+   $this->getScheduler()->scheduleDelayedTask(
+       new ClosureTask(fn() => $player->kick("Kicked!")),
+       20 * 5
+   );
+   ```

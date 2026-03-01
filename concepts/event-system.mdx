@@ -1,0 +1,493 @@
+---
+title: Event System
+description: Understanding PocketMine-MP's event system, handler registration, and priorities
+---
+
+## Overview
+
+PocketMine-MP's event system allows plugins to listen and react to server events like player joins, block breaks, and entity spawns. The system is **synchronous** and runs on the main thread during the tick cycle.
+
+## Event Architecture
+
+### Event Base Class
+
+All events extend the abstract `Event` class:
+
+```php Event.php:33
+abstract class Event {
+    private const MAX_EVENT_CALL_DEPTH = 50;
+    private static int $eventCallDepth = 1;
+    protected ?string $eventName = null;
+    
+    final public function getEventName(): string {
+        return $this->eventName ?? get_class($this);
+    }
+    
+    public function call(): void {
+        // Calls all registered handlers
+    }
+    
+    public static function hasHandlers(): bool {
+        return count(HandlerListManager::global()->getHandlersFor(static::class)) > 0;
+    }
+}
+```
+
+### Event Types
+
+<CardGroup cols={2}>
+  <Card title="Player Events" icon="user">
+    `PlayerJoinEvent`, `PlayerQuitEvent`, `PlayerMoveEvent`, `PlayerChatEvent`
+  </Card>
+  
+  <Card title="Block Events" icon="cube">
+    `BlockBreakEvent`, `BlockPlaceEvent`, `BlockUpdateEvent`
+  </Card>
+  
+  <Card title="Entity Events" icon="dragon">
+    `EntityDamageEvent`, `EntityDeathEvent`, `EntityTeleportEvent`
+  </Card>
+  
+  <Card title="World Events" icon="globe">
+    `ChunkLoadEvent`, `ChunkUnloadEvent`, `WorldLoadEvent`, `WorldSaveEvent`
+  </Card>
+  
+  <Card title="Server Events" icon="server">
+    `CommandEvent`, `DataPacketReceiveEvent`, `DataPacketSendEvent`
+  </Card>
+  
+  <Card title="Inventory Events" icon="box">
+    `InventoryTransactionEvent`, `CraftItemEvent`, `FurnaceSmeltEvent`
+  </Card>
+</CardGroup>
+
+## Creating a Listener
+
+### Listener Interface
+
+Implement the `Listener` marker interface:
+
+```php Listener.php:54
+interface Listener {
+    // Marker interface - no methods required
+}
+```
+
+### Handler Method Requirements
+
+Event handler methods must:
+
+- Be **public**
+- Be **non-static**
+- Accept **exactly one parameter** of type `Event` (or subclass)
+- The event type must be **non-abstract** (unless marked with `@allowHandle`)
+
+```php
+use pocketmine\event\Listener;
+use pocketmine\event\player\PlayerJoinEvent;
+use pocketmine\event\player\PlayerQuitEvent;
+
+class MyListener implements Listener {
+    
+    // Valid handler - accepts PlayerJoinEvent
+    public function onPlayerJoin(PlayerJoinEvent $event): void {
+        $player = $event->getPlayer();
+        $event->setJoinMessage("Welcome " . $player->getName());
+    }
+    
+    // Valid handler - different name, still works
+    public function handleQuit(PlayerQuitEvent $event): void {
+        $player = $event->getPlayer();
+        $this->savePlayerData($player);
+    }
+    
+    // Invalid - private method (won't be registered)
+    private function onChat(PlayerChatEvent $event): void { }
+    
+    // Invalid - static method (won't be registered)
+    public static function onMove(PlayerMoveEvent $event): void { }
+    
+    // Invalid - wrong parameter count (won't be registered)
+    public function onDamage(): void { }
+}
+```
+
+<Info>
+Handler method names don't matter - they're detected via reflection based on the parameter type.
+</Info>
+
+## Registering Listeners
+
+Register listeners via the `PluginManager`:
+
+```php
+use pocketmine\plugin\PluginBase;
+
+class MyPlugin extends PluginBase {
+    
+    protected function onEnable(): void {
+        // Register listener instance
+        $this->getServer()->getPluginManager()->registerEvents(
+            new MyListener($this),
+            $this
+        );
+        
+        // Plugin can also be a listener
+        $this->getServer()->getPluginManager()->registerEvents(
+            $this,
+            $this
+        );
+    }
+}
+```
+
+### Plugin as Listener
+
+Plugins can implement `Listener` directly:
+
+```php
+use pocketmine\plugin\PluginBase;
+use pocketmine\event\Listener;
+use pocketmine\event\block\BlockBreakEvent;
+
+class MyPlugin extends PluginBase implements Listener {
+    
+    protected function onEnable(): void {
+        $this->getServer()->getPluginManager()->registerEvents($this, $this);
+    }
+    
+    public function onBlockBreak(BlockBreakEvent $event): void {
+        $player = $event->getPlayer();
+        $block = $event->getBlock();
+        
+        if (!$player->hasPermission("myplugin.break")) {
+            $event->cancel();
+            $player->sendMessage("You don't have permission to break blocks!");
+        }
+    }
+}
+```
+
+## Event Priorities
+
+### Priority Levels
+
+```php EventPriority.php:38
+final class EventPriority {
+    public const LOWEST = 5;   // Run first
+    public const LOW = 4;
+    public const NORMAL = 3;   // Default
+    public const HIGH = 2;
+    public const HIGHEST = 1;  // Run last
+    public const MONITOR = 0;  // Monitoring only, don't modify
+}
+```
+
+### Execution Order
+
+```
+LOWEST → LOW → NORMAL → HIGH → HIGHEST → MONITOR
+```
+
+### Setting Priority
+
+Use the `@priority` annotation:
+
+```php
+use pocketmine\event\Listener;
+use pocketmine\event\player\PlayerChatEvent;
+
+class ChatFilter implements Listener {
+    
+    /**
+     * @priority LOW
+     */
+    public function filterBadWords(PlayerChatEvent $event): void {
+        $message = $event->getMessage();
+        $filtered = str_replace(["badword1", "badword2"], "***", $message);
+        $event->setMessage($filtered);
+    }
+    
+    /**
+     * @priority HIGHEST
+     */
+    public function applyFormatting(PlayerChatEvent $event): void {
+        // Runs after LOW priority handlers
+        $message = $event->getMessage();
+        $event->setMessage("[" . date("H:i") . "] " . $message);
+    }
+    
+    /**
+     * @priority MONITOR
+     */
+    public function logChat(PlayerChatEvent $event): void {
+        // Just monitoring - don't modify the event
+        $this->logger->info($event->getPlayer()->getName() . ": " . $event->getMessage());
+    }
+}
+```
+
+<Warning>
+MONITOR priority handlers should **never** modify the event or cancel it. Use it only for observation.
+</Warning>
+
+## Cancellable Events
+
+Many events implement the `Cancellable` interface:
+
+```php
+use pocketmine\event\Listener;
+use pocketmine\event\block\BlockPlaceEvent;
+
+class BuildProtection implements Listener {
+    
+    public function onBlockPlace(BlockPlaceEvent $event): void {
+        $player = $event->getPlayer();
+        $block = $event->getBlock();
+        
+        if ($this->isProtectedArea($block->getPosition())) {
+            $event->cancel();
+            $player->sendMessage("You can't build here!");
+        }
+    }
+}
+```
+
+### Handling Cancelled Events
+
+By default, handlers **ignore cancelled events**. Use `@handleCancelled` to receive them:
+
+```php
+/**
+ * @handleCancelled
+ */
+public function logAllPlaceAttempts(BlockPlaceEvent $event): void {
+    // This runs even if the event was already cancelled
+    $this->logger->info(
+        $event->getPlayer()->getName() . " tried to place a block (cancelled: " . 
+        ($event->isCancelled() ? "yes" : "no") . ")"
+    );
+}
+```
+
+## Event Inheritance
+
+Handlers receive events of the specified type **and all subclasses**:
+
+```php
+use pocketmine\event\entity\EntityDamageEvent;
+use pocketmine\event\entity\EntityDamageByEntityEvent;
+
+class DamageLogger implements Listener {
+    
+    // Receives ALL damage events (fall, fire, entity, etc.)
+    public function onAnyDamage(EntityDamageEvent $event): void {
+        $this->logger->info("Entity took damage: " . $event->getCause());
+    }
+    
+    // Only receives entity-vs-entity damage
+    public function onEntityDamage(EntityDamageByEntityEvent $event): void {
+        $damager = $event->getDamager();
+        $victim = $event->getEntity();
+        $this->logger->info($damager->getName() . " damaged " . $victim->getName());
+    }
+}
+```
+
+## Calling Custom Events
+
+### Creating Custom Events
+
+```php
+use pocketmine\event\Event;
+use pocketmine\event\Cancellable;
+use pocketmine\event\CancellableTrait;
+use pocketmine\player\Player;
+
+class PlayerLevelUpEvent extends Event implements Cancellable {
+    use CancellableTrait;
+    
+    public function __construct(
+        private Player $player,
+        private int $oldLevel,
+        private int $newLevel
+    ) {}
+    
+    public function getPlayer(): Player {
+        return $this->player;
+    }
+    
+    public function getOldLevel(): int {
+        return $this->oldLevel;
+    }
+    
+    public function getNewLevel(): int {
+        return $this->newLevel;
+    }
+    
+    public function setNewLevel(int $level): void {
+        $this->newLevel = $level;
+    }
+}
+```
+
+### Calling the Event
+
+```php
+$event = new PlayerLevelUpEvent($player, 5, 6);
+$event->call();
+
+if (!$event->isCancelled()) {
+    $player->setLevel($event->getNewLevel());
+    $player->sendMessage("You leveled up to " . $event->getNewLevel());
+}
+```
+
+<Tip>
+Check if handlers exist before creating event objects to optimize performance:
+
+```php
+if (PlayerLevelUpEvent::hasHandlers()) {
+    $event = new PlayerLevelUpEvent($player, 5, 6);
+    $event->call();
+}
+```
+</Tip>
+
+## Handler Management
+
+The `HandlerListManager` manages all event registrations:
+
+```php HandlerListManager.php:29
+class HandlerListManager {
+    
+    public static function global(): self {
+        return self::$globalInstance ?? (self::$globalInstance = new self());
+    }
+    
+    public function getHandlersFor(string $event): array {
+        // Returns list of RegisteredListener objects
+    }
+    
+    public function unregisterAll(RegisteredListener|Plugin|Listener|null $object = null): void {
+        // Unregisters handlers
+    }
+}
+```
+
+### Unregistering Handlers
+
+```php
+// Unregister all handlers from a plugin
+$pluginManager->disablePlugin($plugin);
+
+// Unregister specific listener
+HandlerListManager::global()->unregisterAll($listenerInstance);
+```
+
+<Note>
+Event handlers are automatically unregistered when a plugin is disabled.
+</Note>
+
+## Common Event Patterns
+
+### Pattern 1: Prevent Action
+
+```php
+public function onBlockBreak(BlockBreakEvent $event): void {
+    if ($this->isProtected($event->getBlock()->getPosition())) {
+        $event->cancel();
+    }
+}
+```
+
+### Pattern 2: Modify Outcome
+
+```php
+public function onPlayerJoin(PlayerJoinEvent $event): void {
+    $player = $event->getPlayer();
+    $event->setJoinMessage("§a[+] " . $player->getName() . " joined!");
+}
+```
+
+### Pattern 3: Track State
+
+```php
+private array $lastDamage = [];
+
+public function onDamage(EntityDamageEvent $event): void {
+    $entity = $event->getEntity();
+    $this->lastDamage[$entity->getId()] = time();
+}
+```
+
+### Pattern 4: Chain Events
+
+```php
+public function onPlayerDeath(PlayerDeathEvent $event): void {
+    $player = $event->getPlayer();
+    
+    // Trigger custom event
+    $customEvent = new PlayerLostItemsEvent($player, $event->getDrops());
+    $customEvent->call();
+    
+    if (!$customEvent->isCancelled()) {
+        $event->setDrops($customEvent->getDrops());
+    }
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Specific Event Types">
+    Prefer specific events over generic ones:
+    
+    ```php
+    // Good
+    public function onPvP(EntityDamageByEntityEvent $event): void { }
+    
+    // Less efficient - receives ALL damage events
+    public function onDamage(EntityDamageEvent $event): void {
+        if ($event instanceof EntityDamageByEntityEvent) { }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Check hasHandlers() for Hot Paths">
+    Avoid creating event objects if no one is listening:
+    
+    ```php
+    if (CustomEvent::hasHandlers()) {
+        (new CustomEvent($data))->call();
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Don't Modify in MONITOR">
+    Use MONITOR only for logging/stats:
+    
+    ```php
+    /**
+     * @priority MONITOR
+     */
+    public function logEvent(Event $event): void {
+        // Just log, don't modify
+        $this->logger->info(get_class($event));
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Handle Null Cases">
+    Not all events guarantee non-null values:
+    
+    ```php
+    public function onDamage(EntityDamageByEntityEvent $event): void {
+        $damager = $event->getDamager();
+        if ($damager instanceof Player) {
+            // Safe to use as Player
+        }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>

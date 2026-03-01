@@ -1,0 +1,571 @@
+---
+title: Permission System
+description: Understanding PocketMine-MP's permission system, permission nodes, and operator management
+---
+
+## Overview
+
+PocketMine-MP uses a **hierarchical permission system** where permissions are represented as nodes (e.g., `myplugin.command.teleport`). Permissions can be granted to players, groups, or operators.
+
+## Permission Architecture
+
+### Permission Class
+
+```php Permission.php:35
+class Permission {
+    private Translatable|string $description;
+    
+    public function __construct(
+        private string $name,
+        Translatable|string|null $description = null,
+        private array $children = []
+    ) {
+        $this->description = $description ?? "";
+        $this->recalculatePermissibles();
+    }
+    
+    public function getName(): string {
+        return $this->name;
+    }
+    
+    public function getChildren(): array {
+        return $this->children;
+    }
+    
+    public function addChild(string $name, bool $value): void {
+        $this->children[$name] = $value;
+        $this->recalculatePermissibles();
+    }
+}
+```
+
+### PermissionManager
+
+Central registry for all permissions:
+
+```php
+use pocketmine\permission\PermissionManager;
+
+$permManager = PermissionManager::getInstance();
+
+// Get a permission
+$permission = $permManager->getPermission("myplugin.admin");
+
+// Check if exists
+if ($permManager->getPermission("some.permission") !== null) {
+    // Permission is registered
+}
+
+// Get all permissions
+$allPermissions = $permManager->getPermissions();
+```
+
+## Permission Nodes
+
+### Naming Convention
+
+Permissions use dot-notation hierarchy:
+
+```
+myplugin.command.teleport
+│       │       └─ Specific action
+│       └───────── Category
+└───────────────── Plugin name
+```
+
+### Examples
+
+```
+pocketmine.command.give       // Use /give command
+pocketmine.command.gamemode   // Use /gamemode command
+myplugin.admin                // Admin access
+myplugin.command.heal         // Use /heal
+myplugin.feature.fly          // Enable flying
+```
+
+## Registering Permissions
+
+### Via plugin.yml
+
+```yaml plugin.yml
+name: MyPlugin
+version: 1.0.0
+main: MyNamespace\MyPlugin
+api: 5.0.0
+
+permissions:
+  myplugin.admin:
+    description: "Admin access to MyPlugin"
+    default: op
+    
+  myplugin.command.heal:
+    description: "Use /heal command"
+    default: true
+    
+  myplugin.command.kill:
+    description: "Use /kill command"
+    default: op
+    children:
+      myplugin.command.kill.others:
+        description: "Kill other players"
+        default: false
+```
+
+### Via Code
+
+```php
+use pocketmine\permission\Permission;
+use pocketmine\permission\PermissionManager;
+use pocketmine\permission\DefaultPermissions;
+
+class MyPlugin extends PluginBase {
+    
+    protected function onEnable(): void {
+        $permManager = PermissionManager::getInstance();
+        
+        // Register single permission
+        $permission = new Permission(
+            "myplugin.admin",
+            "Admin access to MyPlugin"
+        );
+        $permManager->addPermission($permission);
+        
+        // Register with children
+        $parentPerm = new Permission(
+            "myplugin.moderator",
+            "Moderator access",
+            [
+                "myplugin.command.kick" => true,
+                "myplugin.command.ban" => true,
+                "myplugin.command.mute" => true
+            ]
+        );
+        $permManager->addPermission($parentPerm);
+    }
+}
+```
+
+## Default Permission Levels
+
+### Default Values
+
+```php
+PermissionParser::DEFAULT_TRUE      // Everyone has permission
+PermissionParser::DEFAULT_FALSE     // No one has permission by default
+PermissionParser::DEFAULT_OP        // Only operators have permission
+PermissionParser::DEFAULT_NOT_OP    // Only non-operators have permission
+```
+
+### Setting Defaults
+
+```yaml plugin.yml
+permissions:
+  myplugin.user:
+    default: true        # Everyone
+    
+  myplugin.moderator:
+    default: op          # Only operators
+    
+  myplugin.premium:
+    default: false       # Explicitly granted only
+    
+  myplugin.nonop:
+    default: not op      # Non-operators only
+```
+
+## Checking Permissions
+
+### Player Permissions
+
+```php
+use pocketmine\player\Player;
+use pocketmine\command\CommandSender;
+
+function handleCommand(Player $player): void {
+    // Simple check
+    if ($player->hasPermission("myplugin.admin")) {
+        $player->sendMessage("You have admin access!");
+    } else {
+        $player->sendMessage("Access denied!");
+        return;
+    }
+    
+    // Check multiple permissions
+    if ($player->hasPermission("myplugin.moderate") || $player->hasPermission("myplugin.admin")) {
+        // Has moderator or admin
+    }
+}
+```
+
+### Command Senders
+
+```php
+use pocketmine\command\Command;
+use pocketmine\command\CommandSender;
+
+class MyCommand extends Command {
+    
+    public function execute(CommandSender $sender, string $label, array $args): void {
+        if (!$sender->hasPermission("myplugin.command.mycommand")) {
+            $sender->sendMessage("You don't have permission to use this command!");
+            return;
+        }
+        
+        // Execute command
+    }
+}
+```
+
+### Console Always Has Permissions
+
+```php
+use pocketmine\console\ConsoleCommandSender;
+
+if ($sender instanceof ConsoleCommandSender) {
+    // Console has all permissions
+    $sender->sendMessage("Console has unlimited access");
+}
+
+// Or check explicitly
+if ($sender->hasPermission("pocketmine.command.ban")) {
+    // Both players with permission AND console pass this check
+}
+```
+
+<Info>
+The console (`ConsoleCommandSender`) always has **all permissions**, regardless of configuration.
+</Info>
+
+## Permission Attachments
+
+Temporarily grant permissions to players:
+
+```php
+use pocketmine\permission\PermissionAttachment;
+
+$player = $event->getPlayer();
+
+// Create attachment
+$attachment = $player->addAttachment($this); // $this = plugin instance
+
+// Grant permissions
+$attachment->setPermission("myplugin.fly", true);
+$attachment->setPermission("myplugin.speed", true);
+
+// Revoke permission
+$attachment->unsetPermission("myplugin.fly");
+
+// Remove entire attachment
+$player->removeAttachment($attachment);
+```
+
+### Temporary Permissions
+
+```php
+class TempPermissionManager {
+    
+    private array $attachments = [];
+    
+    public function grantTempPermission(Player $player, string $permission, int $seconds): void {
+        $attachment = $player->addAttachment($this->plugin);
+        $attachment->setPermission($permission, true);
+        
+        $this->attachments[$player->getName()] = $attachment;
+        
+        // Schedule removal
+        $this->plugin->getScheduler()->scheduleDelayedTask(
+            new ClosureTask(function() use ($player, $attachment): void {
+                $player->removeAttachment($attachment);
+                unset($this->attachments[$player->getName()]);
+            }),
+            $seconds * 20 // Convert seconds to ticks
+        );
+    }
+}
+```
+
+## Hierarchical Permissions
+
+### Parent-Child Relationships
+
+```php
+// Register parent with children
+$adminPerm = new Permission(
+    "myplugin.admin",
+    "Full admin access",
+    [
+        "myplugin.command.ban" => true,
+        "myplugin.command.kick" => true,
+        "myplugin.command.mute" => true,
+        "myplugin.moderator" => true  // Includes moderator perms
+    ]
+);
+
+$modPerm = new Permission(
+    "myplugin.moderator",
+    "Moderator access",
+    [
+        "myplugin.command.warn" => true,
+        "myplugin.command.freeze" => true
+    ]
+);
+
+PermissionManager::getInstance()->addPermission($adminPerm);
+PermissionManager::getInstance()->addPermission($modPerm);
+```
+
+Now players with `myplugin.admin` automatically have:
+- `myplugin.command.ban`
+- `myplugin.command.kick`
+- `myplugin.command.mute`
+- `myplugin.moderator` (and its children)
+  - `myplugin.command.warn`
+  - `myplugin.command.freeze`
+
+### Wildcards
+
+```yaml plugin.yml
+permissions:
+  myplugin.*:
+    description: "All MyPlugin permissions"
+    children:
+      myplugin.admin: true
+      myplugin.moderator: true
+      myplugin.user: true
+```
+
+```php
+if ($player->hasPermission("myplugin.*")) {
+    // Player has all myplugin permissions
+}
+```
+
+## Operators
+
+### Managing Operators
+
+```php
+$server = Server::getInstance();
+
+// Make player operator
+$player->setOp(true);
+
+// Remove operator
+$player->setOp(false);
+
+// Check if operator
+if ($player->isOp()) {
+    $player->sendMessage("You are an operator!");
+}
+
+// Get all operators (from ops.txt)
+$ops = $server->getOps();
+```
+
+### Operator Permissions
+
+Operators automatically receive all permissions with `default: op`:
+
+```php
+use pocketmine\permission\DefaultPermissions;
+
+// Root operator permission (all operators have this)
+$opRoot = PermissionManager::getInstance()->getPermission(
+    DefaultPermissions::ROOT_OPERATOR
+);
+
+// Add child to operator root
+$opRoot->addChild("myplugin.admin", true);
+// Now all operators have myplugin.admin
+```
+
+## Default Permissions
+
+### Built-in Permission Roots
+
+```php
+use pocketmine\permission\DefaultPermissions;
+
+// Root for all operators
+DefaultPermissions::ROOT_OPERATOR = "pocketmine.group.operator";
+
+// Root for all users
+DefaultPermissions::ROOT_USER = "pocketmine.group.user";
+```
+
+### Registering to Roots
+
+```php
+protected function onEnable(): void {
+    $permManager = PermissionManager::getInstance();
+    
+    // Create permission
+    $perm = new Permission("myplugin.user.feature", "Access user feature");
+    $permManager->addPermission($perm);
+    
+    // Add to user root (everyone gets it)
+    $userRoot = $permManager->getPermission(DefaultPermissions::ROOT_USER);
+    $userRoot->addChild($perm->getName(), true);
+    
+    // Create admin permission
+    $adminPerm = new Permission("myplugin.admin.panel", "Access admin panel");
+    $permManager->addPermission($adminPerm);
+    
+    // Add to operator root (only ops get it)
+    $opRoot = $permManager->getPermission(DefaultPermissions::ROOT_OPERATOR);
+    $opRoot->addChild($adminPerm->getName(), true);
+}
+```
+
+## Permission Events
+
+Monitor permission changes:
+
+```php
+use pocketmine\event\Listener;
+use pocketmine\event\player\PlayerLoginEvent;
+use pocketmine\permission\PermissionAttachment;
+
+class PermissionListener implements Listener {
+    
+    private array $attachments = [];
+    
+    public function onLogin(PlayerLoginEvent $event): void {
+        $player = $event->getPlayer();
+        
+        // Grant permissions based on custom logic
+        if ($this->isVIP($player)) {
+            $attachment = $player->addAttachment($this->plugin);
+            $attachment->setPermission("myplugin.vip", true);
+            $this->attachments[$player->getName()] = $attachment;
+        }
+    }
+    
+    private function isVIP(Player $player): bool {
+        // Check database, config, etc.
+        return true;
+    }
+}
+```
+
+## Common Patterns
+
+### Pattern 1: Command Permission Check
+
+```php
+class TeleportCommand extends Command {
+    
+    public function __construct() {
+        parent::__construct(
+            "teleport",
+            "Teleport to a player",
+            "/teleport <player>"
+        );
+        $this->setPermission("myplugin.command.teleport");
+    }
+    
+    public function execute(CommandSender $sender, string $label, array $args): void {
+        if (!$this->testPermission($sender)) {
+            return; // Automatically sends permission message
+        }
+        
+        // Execute command
+    }
+}
+```
+
+### Pattern 2: Feature Toggle
+
+```php
+public function onPlayerMove(PlayerMoveEvent $event): void {
+    $player = $event->getPlayer();
+    
+    if ($player->hasPermission("myplugin.fly")) {
+        $player->setAllowFlight(true);
+    } else {
+        $player->setAllowFlight(false);
+    }
+}
+```
+
+### Pattern 3: Tiered Permissions
+
+```yaml plugin.yml
+permissions:
+  myplugin.homes.1:
+    description: "Set 1 home"
+    default: true
+  
+  myplugin.homes.3:
+    description: "Set 3 homes"
+    default: false
+  
+  myplugin.homes.unlimited:
+    description: "Unlimited homes"
+    default: op
+```
+
+```php
+function getMaxHomes(Player $player): int {
+    if ($player->hasPermission("myplugin.homes.unlimited")) {
+        return PHP_INT_MAX;
+    }
+    if ($player->hasPermission("myplugin.homes.3")) {
+        return 3;
+    }
+    if ($player->hasPermission("myplugin.homes.1")) {
+        return 1;
+    }
+    return 0;
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Descriptive Names">
+    ```php
+    // Good
+    myplugin.command.teleport
+    myplugin.feature.fly
+    myplugin.admin.panel
+    
+    // Bad
+    myplugin.tp
+    myplugin.fly
+    myplugin.admin
+    ```
+  </Accordion>
+
+  <Accordion title="Document Permissions">
+    Always add descriptions in plugin.yml:
+    ```yaml
+    permissions:
+      myplugin.admin:
+        description: "Full administrative access to MyPlugin"
+        default: op
+    ```
+  </Accordion>
+
+  <Accordion title="Use Hierarchies">
+    Group related permissions:
+    ```php
+    myplugin.command.*
+      ├─ myplugin.command.teleport
+      ├─ myplugin.command.heal
+      └─ myplugin.command.feed
+    ```
+  </Accordion>
+
+  <Accordion title="Clean Up Attachments">
+    Remove attachments when no longer needed:
+    ```php
+    public function onQuit(PlayerQuitEvent $event): void {
+        $player = $event->getPlayer();
+        if (isset($this->attachments[$player->getName()])) {
+            $player->removeAttachment($this->attachments[$player->getName()]);
+        }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>

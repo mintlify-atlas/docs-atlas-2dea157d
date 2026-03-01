@@ -1,0 +1,262 @@
+---
+title: Getting Started
+description: Create your first PocketMine-MP plugin
+---
+
+This guide will walk you through creating your first PocketMine-MP plugin from scratch.
+
+## What is a Plugin?
+
+Plugins are extensions that add custom functionality to your PocketMine-MP server. They can add new commands, listen to events, create custom game mechanics, and much more.
+
+## Prerequisites
+
+- Basic PHP knowledge
+- A PocketMine-MP server
+- A text editor or IDE (PHPStorm, VSCode, etc.)
+
+## Plugin Types
+
+PocketMine-MP supports two types of plugins:
+
+1. **Folder plugins** - Full-featured plugins with proper structure (recommended)
+2. **Script plugins** - Single-file plugins for quick testing only
+
+<Note>
+This guide focuses on folder plugins. Script plugins have limited features and are not recommended for production use.
+</Note>
+
+## Creating Your First Plugin
+
+<Steps>
+
+<Step title="Create the plugin folder structure">
+
+Create a new folder in your server's `plugins` directory:
+
+```
+plugins/
+└── MyFirstPlugin/
+    ├── plugin.yml
+    └── src/
+        └── MyNamespace/
+            └── Main.php
+```
+
+</Step>
+
+<Step title="Create plugin.yml manifest">
+
+The `plugin.yml` file describes your plugin to PocketMine-MP.
+
+```yaml plugin.yml
+name: MyFirstPlugin
+version: 1.0.0
+main: MyNamespace\Main
+api: [5.0.0]
+
+# Optional fields
+author: YourName
+description: My first PocketMine-MP plugin
+website: https://example.com
+```
+
+<Tip>
+The `api` field specifies which PocketMine-MP API versions your plugin supports. Use the API version of your server.
+</Tip>
+
+</Step>
+
+<Step title="Create your main plugin class">
+
+Create `src/MyNamespace/Main.php`:
+
+```php src/MyNamespace/Main.php
+<?php
+
+declare(strict_types=1);
+
+namespace MyNamespace;
+
+use pocketmine\plugin\PluginBase;
+
+class Main extends PluginBase {
+    
+    protected function onEnable() : void {
+        $this->getLogger()->info("MyFirstPlugin has been enabled!");
+    }
+    
+    protected function onDisable() : void {
+        $this->getLogger()->info("MyFirstPlugin has been disabled!");
+    }
+}
+```
+
+<Note>
+All plugin main classes must extend `pocketmine\plugin\PluginBase` (or implement `pocketmine\plugin\Plugin`).
+</Note>
+
+</Step>
+
+<Step title="Load the plugin">
+
+Place your plugin folder in the `plugins` directory and start/restart your server.
+
+You should see:
+```
+[INFO] Loading MyFirstPlugin v1.0.0
+[INFO] Enabling MyFirstPlugin v1.0.0
+[INFO] MyFirstPlugin has been enabled!
+```
+
+</Step>
+
+</Steps>
+
+## Plugin Lifecycle Methods
+
+Your plugin has three lifecycle methods you can override:
+
+### onLoad()
+
+Called when the plugin is loaded, before `onEnable()`. Use this for early initialization.
+
+```php
+protected function onLoad() : void {
+    $this->getLogger()->info("Plugin is loading...");
+    // Initialize resources, register custom classes, etc.
+}
+```
+
+### onEnable()
+
+Called when the plugin is enabled. This is where most initialization happens.
+
+```php
+protected function onEnable() : void {
+    // Register event listeners
+    // Register commands
+    // Load configuration
+    // Schedule tasks
+}
+```
+
+<Warning>
+Do not access the Server instance or perform world operations in `onLoad()`. Use `onEnable()` instead.
+</Warning>
+
+### onDisable()
+
+Called when the plugin is disabled. Use this for cleanup.
+
+```php
+protected function onDisable() : void {
+    // Save data
+    // Cancel tasks
+    // Close database connections
+}
+```
+
+## Complete Example
+
+Here's a complete first plugin that announces when players join:
+
+<CodeGroup>
+
+```yaml plugin.yml
+name: WelcomePlugin
+version: 1.0.0
+main: Welcome\Main
+api: [5.0.0]
+author: YourName
+description: Welcomes players to the server
+```
+
+```php src/Welcome/Main.php
+<?php
+
+declare(strict_types=1);
+
+namespace Welcome;
+
+use pocketmine\plugin\PluginBase;
+use pocketmine\event\Listener;
+use pocketmine\event\player\PlayerJoinEvent;
+
+class Main extends PluginBase implements Listener {
+    
+    protected function onEnable() : void {
+        // Register this class as an event listener
+        $this->getServer()->getPluginManager()->registerEvents($this, $this);
+        $this->getLogger()->info("WelcomePlugin enabled!");
+    }
+    
+    public function onPlayerJoin(PlayerJoinEvent $event) : void {
+        $player = $event->getPlayer();
+        $player->sendMessage("Welcome to the server, " . $player->getName() . "!");
+        
+        // Broadcast to all players
+        $this->getServer()->broadcastMessage(
+            $player->getName() . " has joined the server!"
+        );
+    }
+}
+```
+
+</CodeGroup>
+
+## Common Methods
+
+These methods are available in your plugin class (via `PluginBase`):
+
+| Method | Description | Example |
+|--------|-------------|----------|
+| `getServer()` | Get the Server instance | `$this->getServer()->getOnlinePlayers()` |
+| `getLogger()` | Get the plugin's logger | `$this->getLogger()->info("Message")` |
+| `getDataFolder()` | Get the plugin's data folder | `$this->getDataFolder() . "data.json"` |
+| `getConfig()` | Get the plugin's config | `$this->getConfig()->get("setting")` |
+| `getScheduler()` | Get the task scheduler | `$this->getScheduler()->scheduleTask($task)` |
+| `saveResource()` | Save an embedded resource | `$this->saveResource("config.yml")` |
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Plugin Structure" icon="folder-tree" href="/plugins/plugin-structure">
+Learn about plugin.yml and folder organization
+</Card>
+
+<Card title="Event Handlers" icon="bolt" href="/plugins/event-handlers">
+Respond to game events
+</Card>
+
+<Card title="Commands" icon="terminal" href="/plugins/commands">
+Create custom commands
+</Card>
+
+<Card title="Configuration" icon="file-code" href="/plugins/configuration">
+Manage plugin settings
+</Card>
+
+</CardGroup>
+
+## Troubleshooting
+
+### Plugin not loading
+
+- Check `plugin.yml` syntax (use a YAML validator)
+- Ensure the `main` class exists and namespace matches
+- Verify file permissions
+- Check server logs for error messages
+
+### "Class not found" errors
+
+- Verify namespace matches folder structure
+- Check spelling of class names
+- Ensure `declare(strict_types=1);` is at the top of PHP files
+
+### Plugin loads but doesn't work
+
+- Check for errors in server console
+- Use `$this->getLogger()->debug()` to add debug messages
+- Verify API version compatibility

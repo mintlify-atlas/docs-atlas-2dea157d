@@ -1,0 +1,549 @@
+---
+title: World Management
+description: Understanding world management, chunks, generators, and world operations in PocketMine-MP
+---
+
+## Overview
+
+Worlds in PocketMine-MP represent dimensions where players interact with blocks and entities. The `WorldManager` handles loading, unloading, and ticking of all worlds.
+
+## World Class
+
+The `World` class manages a single dimension:
+
+```php World.php:151
+class World implements ChunkManager {
+    public const Y_MAX = 320;
+    public const Y_MIN = -64;
+    
+    public const TIME_DAY = 1000;
+    public const TIME_NOON = 6000;
+    public const TIME_SUNSET = 12000;
+    public const TIME_NIGHT = 13000;
+    public const TIME_MIDNIGHT = 18000;
+    public const TIME_SUNRISE = 23000;
+    public const TIME_FULL = 24000;
+    
+    public const DIFFICULTY_PEACEFUL = 0;
+    public const DIFFICULTY_EASY = 1;
+    public const DIFFICULTY_NORMAL = 2;
+    public const DIFFICULTY_HARD = 3;
+    
+    private string $folderName;
+    private string $displayName;
+    private array $chunks = [];
+    private array $players = [];
+    private array $entities = [];
+}
+```
+
+## WorldManager
+
+### Accessing Worlds
+
+```php
+use pocketmine\Server;
+
+$server = Server::getInstance();
+$worldManager = $server->getWorldManager();
+
+// Get default world
+$defaultWorld = $worldManager->getDefaultWorld();
+
+// Get world by name
+$world = $worldManager->getWorldByName("world");
+if ($world === null) {
+    $server->getLogger()->error("World not found!");
+}
+
+// Get all loaded worlds
+$worlds = $worldManager->getWorlds();
+foreach ($worlds as $world) {
+    $server->getLogger()->info("Loaded: " . $world->getDisplayName());
+}
+```
+
+### Loading Worlds
+
+```php
+$worldManager = $server->getWorldManager();
+
+// Load existing world
+if ($worldManager->loadWorld("my_world")) {
+    $world = $worldManager->getWorldByName("my_world");
+    $server->getLogger()->info("World loaded: " . $world->getFolderName());
+} else {
+    $server->getLogger()->error("Failed to load world!");
+}
+
+// Check if world is loaded
+if ($worldManager->isWorldLoaded("my_world")) {
+    // World is available
+}
+```
+
+### Creating Worlds
+
+```php
+use pocketmine\world\WorldCreationOptions;
+use pocketmine\world\generator\GeneratorManager;
+
+$options = WorldCreationOptions::create()
+    ->setSeed(12345)
+    ->setGeneratorClass(GeneratorManager::getInstance()->getGenerator("normal"))
+    ->setDifficulty(World::DIFFICULTY_NORMAL);
+
+if ($worldManager->generateWorld("new_world", $options)) {
+    $worldManager->loadWorld("new_world");
+    $world = $worldManager->getWorldByName("new_world");
+    $server->getLogger()->info("Created world: " . $world->getDisplayName());
+}
+```
+
+### Unloading Worlds
+
+```php
+$world = $worldManager->getWorldByName("my_world");
+
+if ($world !== null) {
+    // Kick all players to default world
+    foreach ($world->getPlayers() as $player) {
+        $player->teleport($worldManager->getDefaultWorld()->getSafeSpawn());
+    }
+    
+    // Unload the world
+    if ($worldManager->unloadWorld($world)) {
+        $server->getLogger()->info("World unloaded");
+    }
+}
+```
+
+<Warning>
+You cannot unload the default world. Players must be moved before unloading.
+</Warning>
+
+## Chunk Management
+
+### What is a Chunk?
+
+Chunks are **16x16** vertical sections of the world, from Y_MIN (-64) to Y_MAX (320).
+
+```
+┌─────────┐
+│ 16 x 16 │  
+│         │  Y: -64 to 320
+│  Chunk  │  
+└─────────┘
+```
+
+### Loading Chunks
+
+```php
+$world = $server->getWorldManager()->getDefaultWorld();
+$chunkX = 0;
+$chunkZ = 0;
+
+// Check if chunk is loaded
+if ($world->isChunkLoaded($chunkX, $chunkZ)) {
+    $chunk = $world->getChunk($chunkX, $chunkZ);
+    // Use chunk
+}
+
+// Request chunk load (async)
+$world->requestChunkPopulation($chunkX, $chunkZ)->onCompletion(
+    function() use ($world, $chunkX, $chunkZ): void {
+        $chunk = $world->getChunk($chunkX, $chunkZ);
+        // Chunk is now loaded and populated
+    },
+    function(): void {
+        // Failed to load
+    }
+);
+```
+
+### Chunk Loaders
+
+Chunks stay loaded while they have "loaders" (usually players):
+
+```php
+use pocketmine\world\ChunkLoader;
+use pocketmine\world\ChunkTicker;
+
+class MyChunkLoader implements ChunkLoader {
+    
+    public function getChunkLoaderX(): int {
+        return $this->x >> 4; // Block X to chunk X
+    }
+    
+    public function getChunkLoaderZ(): int {
+        return $this->z >> 4;
+    }
+}
+
+// Register chunk loader
+$world->registerChunkLoader($loader, $chunkX, $chunkZ);
+
+// Unregister
+$world->unregisterChunkLoader($loader, $chunkX, $chunkZ);
+```
+
+<Info>
+Chunks with no loaders are automatically unloaded after a delay.
+</Info>
+
+## World Generators
+
+### Built-in Generators
+
+```php
+use pocketmine\world\generator\GeneratorManager;
+
+$generatorManager = GeneratorManager::getInstance();
+
+// Available generators:
+// - "normal" (overworld)
+// - "flat" (superflat)
+// - "nether"
+// - "end"
+
+$generator = $generatorManager->getGenerator("normal");
+```
+
+### Generator Base Class
+
+```php Generator.php:34
+abstract class Generator {
+    
+    protected Random $random;
+    
+    public function __construct(
+        protected int $seed,
+        protected string $preset
+    ) {
+        $this->random = new Random($seed);
+    }
+    
+    abstract public function generateChunk(ChunkManager $world, int $chunkX, int $chunkZ): void;
+    
+    abstract public function populateChunk(ChunkManager $world, int $chunkX, int $chunkZ): void;
+}
+```
+
+### Registering Custom Generators
+
+```php
+use pocketmine\world\generator\Generator;
+use pocketmine\world\generator\GeneratorManager;
+use pocketmine\world\ChunkManager;
+
+class MyGenerator extends Generator {
+    
+    public function generateChunk(ChunkManager $world, int $chunkX, int $chunkZ): void {
+        // Generate terrain
+        $chunk = $world->getChunk($chunkX, $chunkZ);
+        
+        for ($x = 0; $x < 16; $x++) {
+            for ($z = 0; $z < 16; $z++) {
+                $chunk->setBlockStateId($x, 64, $z, BlockStateIds::GRASS);
+            }
+        }
+    }
+    
+    public function populateChunk(ChunkManager $world, int $chunkX, int $chunkZ): void {
+        // Add trees, ores, etc.
+    }
+}
+
+// Register in onLoad()
+protected function onLoad(): void {
+    GeneratorManager::getInstance()->addGenerator(
+        MyGenerator::class,
+        "mygen",
+        fn() => null
+    );
+}
+```
+
+## Block Operations
+
+### Getting Blocks
+
+```php
+use pocketmine\math\Vector3;
+
+$world = $player->getWorld();
+$position = new Vector3(100, 64, 200);
+
+// Get block at position
+$block = $world->getBlock($position);
+$blockName = $block->getName();
+$blockId = $block->getTypeId();
+
+// Batch get blocks
+for ($x = 0; $x < 10; $x++) {
+    for ($y = 60; $y < 70; $y++) {
+        for ($z = 0; $z < 10; $z++) {
+            $block = $world->getBlockAt($x, $y, $z);
+        }
+    }
+}
+```
+
+### Setting Blocks
+
+```php
+use pocketmine\block\VanillaBlocks;
+
+$world = $player->getWorld();
+
+// Set single block
+$world->setBlock($position, VanillaBlocks::STONE());
+
+// Set with update
+$world->setBlock($position, VanillaBlocks::WATER(), true); // true = update neighbors
+
+// Set multiple blocks efficiently
+$blocks = [
+    new Vector3(0, 64, 0) => VanillaBlocks::GRASS(),
+    new Vector3(1, 64, 0) => VanillaBlocks::DIRT(),
+    new Vector3(2, 64, 0) => VanillaBlocks::STONE(),
+];
+
+foreach ($blocks as $pos => $block) {
+    $world->setBlock($pos, $block, false); // false = don't update yet
+}
+// Update all at once if needed
+```
+
+<Tip>
+Set `$update` to `false` when placing many blocks to improve performance, then manually trigger updates.
+</Tip>
+
+## Entity Management
+
+### Spawning Entities
+
+```php
+use pocketmine\entity\EntityFactory;
+use pocketmine\entity\Location;
+use pocketmine\nbt\tag\CompoundTag;
+
+$world = $player->getWorld();
+$location = new Location(100, 65, 200, $world, 0, 0);
+
+// Create entity
+$entity = EntityFactory::getInstance()->create(
+    "minecraft:cow",
+    $location
+);
+
+if ($entity !== null) {
+    $entity->spawnToAll();
+}
+```
+
+### Getting Entities
+
+```php
+$world = $player->getWorld();
+
+// Get all entities
+$entities = $world->getEntities();
+foreach ($entities as $entity) {
+    $server->getLogger()->info("Entity: " . $entity->getName());
+}
+
+// Get nearby entities
+$nearbyEntities = $world->getNearbyEntities(
+    new AxisAlignedBB(95, 60, 195, 105, 70, 205)
+);
+
+// Get specific entity type
+use pocketmine\entity\Living;
+
+$livingEntities = array_filter(
+    $world->getEntities(),
+    fn($e) => $e instanceof Living
+);
+```
+
+## Time and Weather
+
+### World Time
+
+```php
+$world = $player->getWorld();
+
+// Get time
+$time = $world->getTime();
+
+// Set time
+$world->setTime(World::TIME_DAY);     // Sunrise
+$world->setTime(World::TIME_NOON);    // Noon
+$world->setTime(World::TIME_SUNSET);  // Sunset
+$world->setTime(World::TIME_MIDNIGHT); // Midnight
+
+// Stop time
+$world->stopTime();
+
+// Start time
+$world->startTime();
+
+// Check if time is stopped
+if ($world->stopTime) {
+    $player->sendMessage("Time is frozen!");
+}
+```
+
+### Difficulty
+
+```php
+// Get difficulty
+$difficulty = $world->getDifficulty();
+
+// Set difficulty
+$world->setDifficulty(World::DIFFICULTY_HARD);
+
+switch ($world->getDifficulty()) {
+    case World::DIFFICULTY_PEACEFUL:
+        $player->sendMessage("Peaceful mode");
+        break;
+    case World::DIFFICULTY_EASY:
+        $player->sendMessage("Easy mode");
+        break;
+    case World::DIFFICULTY_NORMAL:
+        $player->sendMessage("Normal mode");
+        break;
+    case World::DIFFICULTY_HARD:
+        $player->sendMessage("Hard mode");
+        break;
+}
+```
+
+## Spawn Management
+
+```php
+$world = $player->getWorld();
+
+// Get spawn position
+$spawn = $world->getSpawnLocation();
+
+// Set spawn position
+$world->setSpawnLocation(new Vector3(0, 65, 0));
+
+// Get safe spawn (finds safe Y level)
+$safeSpawn = $world->getSafeSpawn();
+$player->teleport($safeSpawn);
+```
+
+## Particles and Sounds
+
+### Adding Particles
+
+```php
+use pocketmine\world\particle\FlameParticle;
+use pocketmine\world\particle\HugeExplodeParticle;
+
+$world = $player->getWorld();
+$position = $player->getPosition();
+
+// Add particle
+$world->addParticle($position, new FlameParticle());
+
+// Add to specific players
+$world->addParticle($position, new HugeExplodeParticle(), [$player]);
+```
+
+### Playing Sounds
+
+```php
+use pocketmine\world\sound\ClickSound;
+use pocketmine\world\sound\EndermanTeleportSound;
+
+$world = $player->getWorld();
+
+// Play sound to all nearby
+$world->addSound($position, new ClickSound());
+
+// Play to specific players
+$world->addSound($position, new EndermanTeleportSound(), [$player]);
+```
+
+## World Events
+
+```php
+use pocketmine\event\Listener;
+use pocketmine\event\world\ChunkLoadEvent;
+use pocketmine\event\world\ChunkUnloadEvent;
+use pocketmine\event\world\WorldLoadEvent;
+use pocketmine\event\world\WorldSaveEvent;
+
+class WorldListener implements Listener {
+    
+    public function onChunkLoad(ChunkLoadEvent $event): void {
+        $world = $event->getWorld();
+        $chunkX = $event->getChunkX();
+        $chunkZ = $event->getChunkZ();
+        // Chunk was loaded
+    }
+    
+    public function onWorldLoad(WorldLoadEvent $event): void {
+        $world = $event->getWorld();
+        // World finished loading
+    }
+    
+    public function onWorldSave(WorldSaveEvent $event): void {
+        $world = $event->getWorld();
+        // World is being saved
+    }
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Chunk Loading">
+    Always check if chunks are loaded before accessing:
+    
+    ```php
+    $chunkX = $position->getFloorX() >> 4;
+    $chunkZ = $position->getFloorZ() >> 4;
+    
+    if ($world->isChunkLoaded($chunkX, $chunkZ)) {
+        $block = $world->getBlock($position);
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Batch Operations">
+    Disable updates for bulk block changes:
+    
+    ```php
+    for ($i = 0; $i < 1000; $i++) {
+        $world->setBlock($positions[$i], $blocks[$i], false);
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Async Chunk Operations">
+    Use promises for chunk loading:
+    
+    ```php
+    $world->requestChunkPopulation($chunkX, $chunkZ)->onCompletion(
+        function() { /* success */ },
+        function() { /* failure */ }
+    );
+    ```
+  </Accordion>
+
+  <Accordion title="World Unloading">
+    Always move players before unloading:
+    
+    ```php
+    foreach ($world->getPlayers() as $player) {
+        $player->teleport($defaultWorld->getSafeSpawn());
+    }
+    $worldManager->unloadWorld($world);
+    ```
+  </Accordion>
+</AccordionGroup>

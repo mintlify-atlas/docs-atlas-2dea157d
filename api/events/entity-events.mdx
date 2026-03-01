@@ -1,0 +1,599 @@
+---
+title: Entity Events
+description: Events related to entity spawning, damage, movement, and behavior
+---
+
+Entity events are fired when entities perform actions or change state. All entity events extend the `EntityEvent` base class.
+
+## EntityEvent Base Class
+
+All entity events inherit from this class:
+
+<ParamField path="getEntity()" type="Entity">
+  Returns the entity involved in the event
+</ParamField>
+
+## Damage Events
+
+<Accordion title="EntityDamageEvent">
+  **Cancellable:** Yes
+  
+  Called when an entity takes damage from any source.
+  
+  ```php
+  public function onEntityDamage(EntityDamageEvent $event) : void {
+      $entity = $event->getEntity();
+      $cause = $event->getCause();
+      $damage = $event->getFinalDamage();
+      
+      // Prevent fall damage
+      if ($cause === EntityDamageEvent::CAUSE_FALL) {
+          $event->cancel();
+          return;
+      }
+      
+      // Reduce damage
+      $event->setBaseDamage($event->getBaseDamage() * 0.5);
+      
+      // Modify damage modifiers
+      if ($event->isApplicable(EntityDamageEvent::MODIFIER_ARMOR)) {
+          $event->setModifier(
+              $event->getModifier(EntityDamageEvent::MODIFIER_ARMOR) * 2.0,
+              EntityDamageEvent::MODIFIER_ARMOR
+          );
+      }
+  }
+  ```
+  
+  **Damage Causes:**
+  - `CAUSE_CONTACT` (0) - Contact with cactus, etc.
+  - `CAUSE_ENTITY_ATTACK` (1) - Entity melee attack
+  - `CAUSE_PROJECTILE` (2) - Projectile hit
+  - `CAUSE_SUFFOCATION` (3) - Suffocating in blocks
+  - `CAUSE_FALL` (4) - Fall damage
+  - `CAUSE_FIRE` (5) - Standing in fire
+  - `CAUSE_FIRE_TICK` (6) - Being on fire
+  - `CAUSE_LAVA` (7) - Standing in lava
+  - `CAUSE_DROWNING` (8) - Drowning
+  - `CAUSE_BLOCK_EXPLOSION` (9) - Block explosion (TNT)
+  - `CAUSE_ENTITY_EXPLOSION` (10) - Entity explosion (Creeper)
+  - `CAUSE_VOID` (11) - Void damage
+  - `CAUSE_SUICIDE` (12) - /kill command
+  - `CAUSE_MAGIC` (13) - Magic/potion damage
+  - `CAUSE_CUSTOM` (14) - Custom damage
+  - `CAUSE_STARVATION` (15) - Hunger
+  - `CAUSE_FALLING_BLOCK` (16) - Hit by falling block
+  
+  **Damage Modifiers:**
+  - `MODIFIER_ARMOR` (1) - Armor protection
+  - `MODIFIER_STRENGTH` (2) - Strength effect
+  - `MODIFIER_WEAKNESS` (3) - Weakness effect
+  - `MODIFIER_RESISTANCE` (4) - Resistance effect
+  - `MODIFIER_ABSORPTION` (5) - Absorption hearts
+  - `MODIFIER_ARMOR_ENCHANTMENTS` (6) - Protection enchantments
+  - `MODIFIER_CRITICAL` (7) - Critical hit
+  - `MODIFIER_TOTEM` (8) - Totem of Undying
+  - `MODIFIER_WEAPON_ENCHANTMENTS` (9) - Sharpness, etc.
+  - `MODIFIER_PREVIOUS_DAMAGE_COOLDOWN` (10) - Damage cooldown
+  - `MODIFIER_ARMOR_HELMET` (11) - Helmet specific
+  
+  **Methods:**
+  - `getCause()` - Returns the damage cause
+  - `getBaseDamage()` - Returns base damage before modifiers
+  - `setBaseDamage(float $damage)` - Sets base damage
+  - `getOriginalBaseDamage()` - Returns original base damage
+  - `getModifiers()` - Returns all damage modifiers
+  - `getModifier(int $type)` - Returns specific modifier
+  - `setModifier(float $damage, int $type)` - Sets a modifier
+  - `isApplicable(int $type)` - Checks if modifier is applicable
+  - `getFinalDamage()` - Returns final damage after modifiers
+  - `canBeReducedByArmor()` - Returns whether armor can reduce this damage
+  - `getAttackCooldown()` - Returns attack cooldown in ticks
+  - `setAttackCooldown(int $cooldown)` - Sets attack cooldown
+</Accordion>
+
+<Accordion title="EntityDamageByEntityEvent">
+  **Cancellable:** Yes
+  
+  Called when an entity takes damage from another entity. Extends `EntityDamageEvent`.
+  
+  ```php
+  public function onDamageByEntity(EntityDamageByEntityEvent $event) : void {
+      $entity = $event->getEntity();
+      $damager = $event->getDamager();
+      
+      if ($damager instanceof Player) {
+          // Player attacked the entity
+          $damager->sendMessage("You hit " . $entity->getName());
+      }
+      
+      // Modify knockback
+      $event->setKnockBack(2.0); // Stronger knockback
+      $event->setVerticalKnockBackLimit(0.5);
+  }
+  ```
+  
+  **Methods:**
+  - `getDamager()` - Returns the attacking entity (or null if dead)
+  - `getKnockBack()` - Returns knockback force
+  - `setKnockBack(float $force)` - Sets knockback force
+  - `getVerticalKnockBackLimit()` - Returns max upward velocity
+  - `setVerticalKnockBackLimit(float $limit)` - Sets max upward velocity
+  - All methods from `EntityDamageEvent`
+</Accordion>
+
+<Accordion title="EntityDamageByChildEntityEvent">
+  **Cancellable:** Yes
+  
+  Called when an entity takes damage from a child entity (e.g., arrow shot by skeleton).
+  
+  ```php
+  public function onDamageByChild(EntityDamageByChildEntityEvent $event) : void {
+      $victim = $event->getEntity();
+      $projectile = $event->getChild(); // The arrow
+      $shooter = $event->getDamager(); // The skeleton
+      
+      if ($shooter instanceof Skeleton && $victim instanceof Player) {
+          // Skeleton shot a player
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getChild()` - Returns the child entity (e.g., arrow)
+  - All methods from `EntityDamageByEntityEvent`
+</Accordion>
+
+<Accordion title="EntityDamageByBlockEvent">
+  **Cancellable:** Yes
+  
+  Called when an entity takes damage from a block (cactus, magma).
+  
+  **Methods:**
+  - `getDamager()` - Returns the damaging block
+  - All methods from `EntityDamageEvent`
+</Accordion>
+
+## Life Cycle Events
+
+<Accordion title="EntitySpawnEvent">
+  **Cancellable:** Yes
+  
+  Called when an entity spawns in the world.
+  
+  ```php
+  public function onEntitySpawn(EntitySpawnEvent $event) : void {
+      $entity = $event->getEntity();
+      
+      // Prevent zombie spawning
+      if ($entity instanceof Zombie) {
+          $event->cancel();
+      }
+  }
+  ```
+</Accordion>
+
+<Accordion title="EntityDespawnEvent">
+  **Cancellable:** No
+  
+  Called when an entity is despawned (removed from the world).
+  
+  ```php
+  public function onEntityDespawn(EntityDespawnEvent $event) : void {
+      $entity = $event->getEntity();
+      $entityType = $event->getEntityType();
+      
+      // Log entity despawn
+      $this->getLogger()->info("Entity despawned: " . $entityType->getName());
+  }
+  ```
+  
+  **Methods:**
+  - `getEntityType()` - Returns the EntityTypeInterface
+</Accordion>
+
+<Accordion title="EntityDeathEvent">
+  **Cancellable:** No
+  
+  Called when an entity dies.
+  
+  ```php
+  public function onEntityDeath(EntityDeathEvent $event) : void {
+      $entity = $event->getEntity();
+      $drops = $event->getDrops();
+      
+      // Add extra drops
+      $drops[] = VanillaItems::DIAMOND()->setCount(5);
+      $event->setDrops($drops);
+      
+      // Modify XP
+      $event->setXpDropAmount(100);
+  }
+  ```
+  
+  **Methods:**
+  - `getDrops()` - Returns array of dropped items
+  - `setDrops(array $drops)` - Sets dropped items
+  - `getXpDropAmount()` - Returns XP to drop
+  - `setXpDropAmount(int $amount)` - Sets XP to drop
+</Accordion>
+
+## Movement Events
+
+<Accordion title="EntityTeleportEvent">
+  **Cancellable:** Yes
+  
+  Called when an entity teleports.
+  
+  ```php
+  public function onEntityTeleport(EntityTeleportEvent $event) : void {
+      $entity = $event->getEntity();
+      $from = $event->getFrom();
+      $to = $event->getTo();
+      
+      // Prevent teleporting to certain worlds
+      if ($to->getWorld()->getFolderName() === "nether") {
+          $event->cancel();
+      }
+      
+      // Modify destination
+      $event->setTo($to->add(0, 10, 0)); // Teleport 10 blocks higher
+  }
+  ```
+  
+  **Methods:**
+  - `getFrom()` - Returns origin position
+  - `getTo()` - Returns destination position
+  - `setTo(Position $to)` - Sets destination position
+</Accordion>
+
+<Accordion title="EntityMotionEvent">
+  **Cancellable:** Yes
+  
+  Called when an entity's motion changes.
+  
+  ```php
+  public function onEntityMotion(EntityMotionEvent $event) : void {
+      $entity = $event->getEntity();
+      $motion = $event->getVector();
+      
+      // Limit upward motion
+      if ($motion->y > 2.0) {
+          $event->setVector(new Vector3($motion->x, 2.0, $motion->z));
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getVector()` - Returns the motion vector
+  - `setVector(Vector3 $motion)` - Sets the motion vector
+</Accordion>
+
+## Status Effects
+
+<Accordion title="EntityEffectAddEvent">
+  **Cancellable:** Yes
+  
+  Called when an effect is added to an entity.
+  
+  ```php
+  public function onEffectAdd(EntityEffectAddEvent $event) : void {
+      $entity = $event->getEntity();
+      $effect = $event->getEffect();
+      
+      // Prevent poison
+      if ($effect->getType() === VanillaEffects::POISON()) {
+          $event->cancel();
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getEffect()` - Returns the EffectInstance
+  - `getOldEffect()` - Returns previous effect (or null)
+</Accordion>
+
+<Accordion title="EntityEffectRemoveEvent">
+  **Cancellable:** Yes
+  
+  Called when an effect is removed from an entity.
+  
+  **Methods:**
+  - `getEffect()` - Returns the EffectInstance being removed
+</Accordion>
+
+## Combat Events
+
+<Accordion title="EntityRegainHealthEvent">
+  **Cancellable:** Yes
+  
+  Called when an entity regains health.
+  
+  ```php
+  public function onRegainHealth(EntityRegainHealthEvent $event) : void {
+      $entity = $event->getEntity();
+      $amount = $event->getAmount();
+      $reason = $event->getRegainReason();
+      
+      if ($reason === EntityRegainHealthEvent::CAUSE_EATING) {
+          // Double healing from food
+          $event->setAmount($amount * 2.0);
+      }
+  }
+  ```
+  
+  **Causes:**
+  - `CAUSE_SATURATION` - Saturation effect
+  - `CAUSE_EATING` - Eating food
+  - `CAUSE_MAGIC` - Instant Health potion
+  - `CAUSE_REGEN` - Regeneration effect
+  - `CAUSE_CUSTOM` - Custom healing
+  
+  **Methods:**
+  - `getAmount()` - Returns health regained
+  - `setAmount(float $amount)` - Sets health regained
+  - `getRegainReason()` - Returns the cause
+</Accordion>
+
+<Accordion title="EntityShootBowEvent">
+  **Cancellable:** Yes
+  
+  Called when an entity shoots a bow.
+  
+  ```php
+  public function onShootBow(EntityShootBowEvent $event) : void {
+      $shooter = $event->getEntity();
+      $projectile = $event->getProjectile();
+      $force = $event->getForce();
+      
+      // Increase arrow speed
+      $projectile->setMotion($projectile->getMotion()->multiply(2.0));
+  }
+  ```
+  
+  **Methods:**
+  - `getBow()` - Returns the bow item
+  - `getProjectile()` - Returns the projectile entity
+  - `getForce()` - Returns shot force (0.0-1.0)
+</Accordion>
+
+## Combustion Events
+
+<Accordion title="EntityCombustEvent">
+  **Cancellable:** Yes
+  
+  Called when an entity catches fire.
+  
+  ```php
+  public function onCombust(EntityCombustEvent $event) : void {
+      $entity = $event->getEntity();
+      $duration = $event->getDuration();
+      
+      // Prevent zombies from burning
+      if ($entity instanceof Zombie) {
+          $event->cancel();
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getDuration()` - Returns burn duration in seconds
+  - `setDuration(int $duration)` - Sets burn duration
+</Accordion>
+
+<Accordion title="EntityCombustByBlockEvent">
+  **Cancellable:** Yes
+  
+  Called when an entity is set on fire by a block (lava, fire).
+  
+  **Methods:**
+  - `getCombustor()` - Returns the block causing combustion
+</Accordion>
+
+<Accordion title="EntityCombustByEntityEvent">
+  **Cancellable:** Yes
+  
+  Called when an entity is set on fire by another entity.
+  
+  **Methods:**
+  - `getCombustor()` - Returns the entity causing combustion
+</Accordion>
+
+<Accordion title="EntityExtinguishEvent">
+  **Cancellable:** Yes
+  
+  Called when an entity's fire is extinguished.
+</Accordion>
+
+## Explosion Events
+
+<Accordion title="EntityExplodeEvent">
+  **Cancellable:** Yes
+  
+  Called when an entity explodes (Creeper, TNT, etc.).
+  
+  ```php
+  public function onEntityExplode(EntityExplodeEvent $event) : void {
+      $entity = $event->getEntity();
+      $blockList = $event->getBlockList();
+      
+      if ($entity instanceof Creeper) {
+          // Prevent creeper explosions from destroying blocks
+          $event->setBlockList([]);
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getBlockList()` - Returns blocks that will be destroyed
+  - `setBlockList(array $blocks)` - Sets blocks to destroy
+  - `getYieldDrops()` - Returns whether blocks drop items
+  - `setYieldDrops(bool $yield)` - Sets whether blocks drop items
+</Accordion>
+
+<Accordion title="EntityPreExplodeEvent">
+  **Cancellable:** Yes
+  
+  Called before an entity explosion, allows modifying affected blocks.
+  
+  **Methods:**
+  - `getAffectedBlocks()` - Returns blocks that will be affected
+  - `setAffectedBlocks(array $blocks)` - Sets blocks to affect
+</Accordion>
+
+## Item Entity Events
+
+<Accordion title="ItemSpawnEvent">
+  **Cancellable:** Yes
+  
+  Called when an item entity spawns.
+  
+  ```php
+  public function onItemSpawn(ItemSpawnEvent $event) : void {
+      $item = $event->getEntity();
+      $itemStack = $item->getItem();
+      
+      // Prevent diamond drops
+      if ($itemStack->getTypeId() === ItemTypeIds::DIAMOND) {
+          $event->cancel();
+      }
+  }
+  ```
+</Accordion>
+
+<Accordion title="ItemDespawnEvent">
+  **Cancellable:** Yes
+  
+  Called when an item entity despawns after 5 minutes.
+  
+  ```php
+  public function onItemDespawn(ItemDespawnEvent $event) : void {
+      $item = $event->getEntity();
+      
+      // Prevent important items from despawning
+      if ($item->getItem()->hasTag("important")) {
+          $event->cancel();
+      }
+  }
+  ```
+</Accordion>
+
+<Accordion title="ItemMergeEvent">
+  **Cancellable:** Yes
+  
+  Called when two item entities merge into one.
+  
+  **Methods:**
+  - `getTarget()` - Returns the other item entity
+</Accordion>
+
+<Accordion title="EntityItemPickupEvent">
+  **Cancellable:** Yes
+  
+  Called when an entity picks up an item.
+  
+  ```php
+  public function onItemPickup(EntityItemPickupEvent $event) : void {
+      $entity = $event->getEntity();
+      $item = $event->getItem();
+      $origin = $event->getOrigin();
+      
+      if ($entity instanceof Player) {
+          $entity->sendMessage("You picked up " . $item->getItem()->getName());
+      }
+  }
+  ```
+  
+  **Methods:**
+  - `getOrigin()` - Returns the item entity
+  - `getItem()` - Returns the item stack
+  - `getInventory()` - Returns the receiving inventory
+</Accordion>
+
+## Projectile Events
+
+<Accordion title="ProjectileLaunchEvent">
+  **Cancellable:** Yes
+  
+  Called when a projectile is launched.
+  
+  ```php
+  public function onProjectileLaunch(ProjectileLaunchEvent $event) : void {
+      $projectile = $event->getEntity();
+      
+      if ($projectile instanceof Arrow) {
+          // Modify arrow properties
+          $projectile->setOnFire(20 * 100); // Set on fire
+      }
+  }
+  ```
+</Accordion>
+
+<Accordion title="ProjectileHitEvent">
+  **Cancellable:** No
+  
+  Base event called when a projectile hits something.
+  
+  **Methods:**
+  - `getRayTraceResult()` - Returns the ray trace hit result
+</Accordion>
+
+<Accordion title="ProjectileHitBlockEvent">
+  **Cancellable:** No
+  
+  Called when a projectile hits a block.
+  
+  **Methods:**
+  - `getBlockHit()` - Returns the hit block
+  - `getRayTraceResult()` - Returns hit details
+</Accordion>
+
+<Accordion title="ProjectileHitEntityEvent">
+  **Cancellable:** No
+  
+  Called when a projectile hits an entity.
+  
+  **Methods:**
+  - `getEntityHit()` - Returns the hit entity
+  - `getRayTraceResult()` - Returns hit details
+</Accordion>
+
+## Special Events
+
+<Accordion title="EntityBlockChangeEvent">
+  **Cancellable:** Yes
+  
+  Called when an entity changes a block (enderman picking up blocks, sheep eating grass).
+  
+  **Methods:**
+  - `getBlock()` - Returns the affected block
+  - `getTo()` - Returns the new block state
+</Accordion>
+
+<Accordion title="EntityTrampleFarmlandEvent">
+  **Cancellable:** Yes
+  
+  Called when an entity tramples farmland into dirt.
+  
+  **Methods:**
+  - `getBlock()` - Returns the farmland block
+</Accordion>
+
+<Accordion title="EntityFrostWalkerEvent">
+  **Cancellable:** Yes
+  
+  Called when an entity with Frost Walker creates ice.
+  
+  **Methods:**
+  - `getBlockPositions()` - Returns positions that will turn to ice
+</Accordion>
+
+<Accordion title="AreaEffectCloudApplyEvent">
+  **Cancellable:** Yes
+  
+  Called when an area effect cloud applies effects to entities.
+  
+  **Methods:**
+  - `getRecipients()` - Returns affected entities
+  - `setRecipients(array $entities)` - Sets affected entities
+</Accordion>

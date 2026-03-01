@@ -1,0 +1,977 @@
+---
+title: 'Item API'
+description: 'Complete API reference for item handling and manipulation in PocketMine-MP'
+---
+
+## Overview
+
+The Item API provides comprehensive control over item instances, including NBT data, enchantments, custom names, and item interactions.
+
+## Item Class
+
+The base class for all item types.
+
+**Namespace:** `pocketmine\item\Item`
+
+### Core Methods
+
+#### getTypeId
+
+```php
+public function getTypeId() : int
+```
+
+Returns the numeric type ID of this item.
+
+<ResponseField name="return" type="int">
+  The item type ID
+</ResponseField>
+
+```php
+// Example: Check item type
+if($item->getTypeId() === ItemTypeIds::DIAMOND){
+    $player->sendMessage("You have a diamond!");
+}
+```
+
+---
+
+#### getStateId
+
+```php
+public function getStateId() : int
+```
+
+Returns the state ID including item properties.
+
+<ResponseField name="return" type="int">
+  The complete item state ID
+</ResponseField>
+
+---
+
+#### getName
+
+```php
+public function getName() : string
+```
+
+Returns the name of the item (custom name if set, otherwise vanilla name).
+
+<ResponseField name="return" type="string">
+  The item's display name
+</ResponseField>
+
+---
+
+#### getVanillaName
+
+```php
+public function getVanillaName() : string
+```
+
+Returns the vanilla name, ignoring custom names.
+
+<ResponseField name="return" type="string">
+  The vanilla item name
+</ResponseField>
+
+---
+
+### Count & Stack
+
+#### getCount
+
+```php
+public function getCount() : int
+```
+
+Returns the number of items in this stack.
+
+<ResponseField name="return" type="int">
+  Item count
+</ResponseField>
+
+---
+
+#### setCount
+
+```php
+public function setCount(int $count) : Item
+```
+
+Sets the number of items in this stack.
+
+<ParamField path="count" type="int" required>
+  New item count
+</ParamField>
+
+<ResponseField name="return" type="Item">
+  Returns $this for method chaining
+</ResponseField>
+
+```php
+// Example: Set item count
+$item->setCount(64);
+$player->getInventory()->addItem($item);
+```
+
+---
+
+#### pop
+
+```php
+public function pop(int $count = 1) : Item
+```
+
+Pops items from the stack and returns them.
+
+<ParamField path="count" type="int" default="1">
+  Number of items to pop
+</ParamField>
+
+<ResponseField name="return" type="Item">
+  Clone of this item with the popped amount
+</ResponseField>
+
+```php
+// Example: Split item stack
+$original = VanillaItems::DIAMOND()->setCount(64);
+$popped = $original->pop(32); // $original now has 32, $popped has 32
+```
+
+---
+
+#### getMaxStackSize
+
+```php
+public function getMaxStackSize() : int
+```
+
+Returns the maximum stack size for this item.
+
+<ResponseField name="return" type="int">
+  Maximum stack size (usually 64)
+</ResponseField>
+
+---
+
+#### isNull
+
+```php
+public function isNull() : bool
+```
+
+Returns whether this item stack is empty.
+
+<ResponseField name="return" type="bool">
+  True if count is 0 or less
+</ResponseField>
+
+---
+
+### Custom Name & Lore
+
+#### hasCustomName
+
+```php
+public function hasCustomName() : bool
+```
+
+Returns whether this item has a custom name.
+
+---
+
+#### getCustomName
+
+```php
+public function getCustomName() : string
+```
+
+Returns the custom name of this item.
+
+<ResponseField name="return" type="string">
+  The custom name, or empty string if not set
+</ResponseField>
+
+---
+
+#### setCustomName
+
+```php
+public function setCustomName(string $name) : Item
+```
+
+Sets a custom name for this item.
+
+<ParamField path="name" type="string" required>
+  Custom name to set
+</ParamField>
+
+<ResponseField name="return" type="Item">
+  Returns $this for method chaining
+</ResponseField>
+
+```php
+// Example: Set custom name
+$item = VanillaItems::DIAMOND_SWORD();
+$item->setCustomName("Legendary Sword");
+$player->getInventory()->addItem($item);
+```
+
+---
+
+#### clearCustomName
+
+```php
+public function clearCustomName() : Item
+```
+
+Removes the custom name from this item.
+
+---
+
+#### getLore
+
+```php
+public function getLore() : array
+```
+
+Returns the lore (description lines) of this item.
+
+<ResponseField name="return" type="string[]">
+  Array of lore lines
+</ResponseField>
+
+---
+
+#### setLore
+
+```php
+public function setLore(array $lines) : Item
+```
+
+Sets the lore for this item.
+
+<ParamField path="lines" type="string[]" required>
+  Array of lore lines
+</ParamField>
+
+<ResponseField name="return" type="Item">
+  Returns $this for method chaining
+</ResponseField>
+
+```php
+// Example: Set item lore
+$item = VanillaItems::DIAMOND_SWORD();
+$item->setLore([
+    "A powerful weapon",
+    "Forged in ancient times",
+    "Rarity: Legendary"
+]);
+$player->getInventory()->addItem($item);
+```
+
+---
+
+### NBT Data
+
+#### hasNamedTag
+
+```php
+public function hasNamedTag() : bool
+```
+
+Returns whether this item has NBT data.
+
+---
+
+#### getNamedTag
+
+```php
+public function getNamedTag() : CompoundTag
+```
+
+Returns the item's NBT data.
+
+<ResponseField name="return" type="CompoundTag">
+  NBT compound tag
+</ResponseField>
+
+```php
+use pocketmine\nbt\tag\StringTag;
+
+// Example: Set custom NBT data
+$nbt = $item->getNamedTag();
+$nbt->setString("CustomData", "some_value");
+$item->setNamedTag($nbt);
+
+// Example: Read custom NBT data
+$nbt = $item->getNamedTag();
+if($nbt->getTag("CustomData") instanceof StringTag){
+    $value = $nbt->getString("CustomData");
+}
+```
+
+---
+
+#### setNamedTag
+
+```php
+public function setNamedTag(CompoundTag $tag) : Item
+```
+
+Sets the item's NBT data.
+
+<ParamField path="tag" type="CompoundTag" required>
+  NBT data to set
+</ParamField>
+
+---
+
+#### clearNamedTag
+
+```php
+public function clearNamedTag() : Item
+```
+
+Removes all NBT data from the item.
+
+---
+
+### Keep on Death
+
+#### keepOnDeath
+
+```php
+public function keepOnDeath() : bool
+```
+
+Returns whether players retain this item on death.
+
+---
+
+#### setKeepOnDeath
+
+```php
+public function setKeepOnDeath(bool $keepOnDeath) : void
+```
+
+Sets whether this item is kept on death.
+
+<ParamField path="keepOnDeath" type="bool" required>
+  Whether to keep on death
+</ParamField>
+
+```php
+// Example: Make item persistent on death
+$item = VanillaItems::COMPASS();
+$item->setKeepOnDeath(true);
+$player->getInventory()->addItem($item);
+```
+
+---
+
+### Comparison
+
+#### equals
+
+```php
+public function equals(Item $item, bool $checkDamage = true, bool $checkCompound = true) : bool
+```
+
+Compares this item to another.
+
+<ParamField path="item" type="Item" required>
+  Item to compare with
+</ParamField>
+
+<ParamField path="checkDamage" type="bool" default="true">
+  Deprecated parameter
+</ParamField>
+
+<ParamField path="checkCompound" type="bool" default="true">
+  Whether to check NBT data
+</ParamField>
+
+<ResponseField name="return" type="bool">
+  True if items match
+</ResponseField>
+
+---
+
+#### canStackWith
+
+```php
+public function canStackWith(Item $other) : bool
+```
+
+Returns whether this item can stack with another.
+
+<ParamField path="other" type="Item" required>
+  Item to check stacking with
+</ParamField>
+
+<ResponseField name="return" type="bool">
+  True if items can stack
+</ResponseField>
+
+```php
+// Example: Check if items can stack
+if($item1->canStackWith($item2)){
+    $combined = $item1->getCount() + $item2->getCount();
+    $item1->setCount(min($combined, $item1->getMaxStackSize()));
+}
+```
+
+---
+
+### Block Interaction
+
+#### canBePlaced
+
+```php
+public function canBePlaced() : bool
+```
+
+Returns whether this item can be placed as a block.
+
+---
+
+#### getBlock
+
+```php
+public function getBlock(?int $clickedFace = null) : Block
+```
+
+Returns the block corresponding to this item.
+
+<ParamField path="clickedFace" type="int|null">
+  Face that was clicked when placing
+</ParamField>
+
+<ResponseField name="return" type="Block">
+  The block form of this item
+</ResponseField>
+
+---
+
+### Combat & Tools
+
+#### getAttackPoints
+
+```php
+public function getAttackPoints() : int
+```
+
+Returns damage dealt when used as a weapon.
+
+<ResponseField name="return" type="int">
+  Attack damage
+</ResponseField>
+
+---
+
+#### getDefensePoints
+
+```php
+public function getDefensePoints() : int
+```
+
+Returns armor points when worn.
+
+<ResponseField name="return" type="int">
+  Defense points
+</ResponseField>
+
+---
+
+#### getBlockToolType
+
+```php
+public function getBlockToolType() : int
+```
+
+Returns the tool type for block breaking.
+
+<ResponseField name="return" type="int">
+  Tool type constant
+</ResponseField>
+
+---
+
+#### getBlockToolHarvestLevel
+
+```php
+public function getBlockToolHarvestLevel() : int
+```
+
+Returns the harvest level of this tool.
+
+<ResponseField name="return" type="int">
+  Harvest level (0 for non-tiered tools)
+</ResponseField>
+
+---
+
+#### getMiningEfficiency
+
+```php
+public function getMiningEfficiency(bool $isCorrectTool) : float
+```
+
+Returns mining efficiency multiplier.
+
+<ParamField path="isCorrectTool" type="bool" required>
+  Whether this is the correct tool type
+</ParamField>
+
+---
+
+### Actions & Events
+
+#### onInteractBlock
+
+```php
+public function onInteractBlock(Player $player, Block $blockReplace, Block $blockClicked, int $face, Vector3 $clickVector, array &$returnedItems) : ItemUseResult
+```
+
+Called when a player uses this item on a block.
+
+<ParamField path="player" type="Player" required>
+  Player using the item
+</ParamField>
+
+<ParamField path="blockReplace" type="Block" required>
+  Block being replaced
+</ParamField>
+
+<ParamField path="blockClicked" type="Block" required>
+  Block that was clicked
+</ParamField>
+
+<ParamField path="face" type="int" required>
+  Face of the block clicked
+</ParamField>
+
+<ParamField path="clickVector" type="Vector3" required>
+  Exact click position
+</ParamField>
+
+<ParamField path="returnedItems" type="Item[]" byref>
+  Items to return to player
+</ParamField>
+
+<ResponseField name="return" type="ItemUseResult">
+  Result of the interaction
+</ResponseField>
+
+---
+
+#### onClickAir
+
+```php
+public function onClickAir(Player $player, Vector3 $directionVector, array &$returnedItems) : ItemUseResult
+```
+
+Called when a player uses this item in air.
+
+<ParamField path="player" type="Player" required>
+  Player using the item
+</ParamField>
+
+<ParamField path="directionVector" type="Vector3" required>
+  Direction the player is facing
+</ParamField>
+
+<ParamField path="returnedItems" type="Item[]" byref>
+  Items to return to player
+</ParamField>
+
+---
+
+#### onReleaseUsing
+
+```php
+public function onReleaseUsing(Player $player, array &$returnedItems) : ItemUseResult
+```
+
+Called when a player releases this item after using it.
+
+---
+
+#### onDestroyBlock
+
+```php
+public function onDestroyBlock(Block $block, array &$returnedItems) : bool
+```
+
+Called when this item is used to destroy a block.
+
+<ParamField path="block" type="Block" required>
+  Block being destroyed
+</ParamField>
+
+<ParamField path="returnedItems" type="Item[]" byref>
+  Items to return
+</ParamField>
+
+<ResponseField name="return" type="bool">
+  Whether the item changed
+</ResponseField>
+
+---
+
+#### onAttackEntity
+
+```php
+public function onAttackEntity(Entity $victim, array &$returnedItems) : bool
+```
+
+Called when this item is used to attack an entity.
+
+<ParamField path="victim" type="Entity" required>
+  Entity being attacked
+</ParamField>
+
+<ParamField path="returnedItems" type="Item[]" byref>
+  Items to return
+</ParamField>
+
+---
+
+### Enchantments
+
+#### hasEnchantment
+
+```php
+public function hasEnchantment(Enchantment $enchantment, int $level = -1) : bool
+```
+
+Returns whether this item has the specified enchantment.
+
+<ParamField path="enchantment" type="Enchantment" required>
+  Enchantment to check for
+</ParamField>
+
+<ParamField path="level" type="int" default="-1">
+  Specific level to check (-1 = any level)
+</ParamField>
+
+```php
+use pocketmine\item\enchantment\VanillaEnchantments;
+
+// Example: Check for enchantment
+if($item->hasEnchantment(VanillaEnchantments::SHARPNESS())){
+    $player->sendMessage("This weapon has Sharpness!");
+}
+```
+
+---
+
+#### getEnchantment
+
+```php
+public function getEnchantment(Enchantment $enchantment) : ?EnchantmentInstance
+```
+
+Returns the enchantment instance if present.
+
+<ResponseField name="return" type="EnchantmentInstance|null">
+  The enchantment instance, or null
+</ResponseField>
+
+---
+
+#### addEnchantment
+
+```php
+public function addEnchantment(EnchantmentInstance $enchantment) : Item
+```
+
+Adds an enchantment to this item.
+
+<ParamField path="enchantment" type="EnchantmentInstance" required>
+  Enchantment to add
+</ParamField>
+
+```php
+use pocketmine\item\enchantment\EnchantmentInstance;
+use pocketmine\item\enchantment\VanillaEnchantments;
+
+// Example: Add enchantment
+$item = VanillaItems::DIAMOND_SWORD();
+$item->addEnchantment(new EnchantmentInstance(VanillaEnchantments::SHARPNESS(), 5));
+$item->addEnchantment(new EnchantmentInstance(VanillaEnchantments::UNBREAKING(), 3));
+$player->getInventory()->addItem($item);
+```
+
+---
+
+#### removeEnchantment
+
+```php
+public function removeEnchantment(Enchantment $enchantment, int $level = -1) : Item
+```
+
+Removes an enchantment from this item.
+
+---
+
+#### removeEnchantments
+
+```php
+public function removeEnchantments() : Item
+```
+
+Removes all enchantments from this item.
+
+---
+
+#### getEnchantments
+
+```php
+public function getEnchantments() : array
+```
+
+Returns all enchantments on this item.
+
+<ResponseField name="return" type="EnchantmentInstance[]">
+  Array of enchantment instances
+</ResponseField>
+
+---
+
+### Fuel & Fire Resistance
+
+#### getFuelTime
+
+```php
+public function getFuelTime() : int
+```
+
+Returns furnace burn time in ticks.
+
+<ResponseField name="return" type="int">
+  Fuel time in ticks
+</ResponseField>
+
+---
+
+#### getFuelResidue
+
+```php
+public function getFuelResidue() : Item
+```
+
+Returns the item left after burning as fuel.
+
+---
+
+#### isFireProof
+
+```php
+public function isFireProof() : bool
+```
+
+Returns whether this item can survive fire/lava.
+
+---
+
+### Cooldowns
+
+#### getCooldownTicks
+
+```php
+public function getCooldownTicks() : int
+```
+
+Returns cooldown duration in ticks.
+
+---
+
+#### getCooldownTag
+
+```php
+public function getCooldownTag() : ?string
+```
+
+Returns the cooldown group tag.
+
+---
+
+## VanillaItems Helper
+
+Provides easy access to vanilla item types.
+
+**Namespace:** `pocketmine\item\VanillaItems`
+
+### Usage
+
+```php
+use pocketmine\item\VanillaItems;
+
+// Get item instances
+$diamond = VanillaItems::DIAMOND();
+$sword = VanillaItems::DIAMOND_SWORD();
+$apple = VanillaItems::APPLE();
+$arrow = VanillaItems::ARROW();
+
+// Give items to players
+$player->getInventory()->addItem(VanillaItems::DIAMOND()->setCount(64));
+```
+
+### Common Items
+
+<Expandable title="Tools & Weapons">
+```php
+VanillaItems::DIAMOND_SWORD()
+VanillaItems::DIAMOND_PICKAXE()
+VanillaItems::DIAMOND_AXE()
+VanillaItems::DIAMOND_SHOVEL()
+VanillaItems::DIAMOND_HOE()
+VanillaItems::BOW()
+VanillaItems::ARROW()
+VanillaItems::FISHING_ROD()
+VanillaItems::SHEARS()
+```
+</Expandable>
+
+<Expandable title="Armor">
+```php
+VanillaItems::DIAMOND_HELMET()
+VanillaItems::DIAMOND_CHESTPLATE()
+VanillaItems::DIAMOND_LEGGINGS()
+VanillaItems::DIAMOND_BOOTS()
+VanillaItems::IRON_HELMET()
+VanillaItems::IRON_CHESTPLATE()
+VanillaItems::IRON_LEGGINGS()
+VanillaItems::IRON_BOOTS()
+```
+</Expandable>
+
+<Expandable title="Food">
+```php
+VanillaItems::APPLE()
+VanillaItems::BREAD()
+VanillaItems::COOKED_BEEF()
+VanillaItems::COOKED_CHICKEN()
+VanillaItems::GOLDEN_APPLE()
+VanillaItems::ENCHANTED_GOLDEN_APPLE()
+VanillaItems::COOKIE()
+VanillaItems::CAKE()
+```
+</Expandable>
+
+<Expandable title="Materials">
+```php
+VanillaItems::DIAMOND()
+VanillaItems::EMERALD()
+VanillaItems::GOLD_INGOT()
+VanillaItems::IRON_INGOT()
+VanillaItems::COAL()
+VanillaItems::REDSTONE_DUST()
+VanillaItems::LAPIS_LAZULI()
+VanillaItems::STICK()
+VanillaItems::STRING()
+```
+</Expandable>
+
+---
+
+## Common Usage Patterns
+
+### Creating Custom Items
+
+```php
+use pocketmine\item\VanillaItems;
+use pocketmine\item\enchantment\EnchantmentInstance;
+use pocketmine\item\enchantment\VanillaEnchantments;
+
+public function createLegendarySword() : Item{
+    $sword = VanillaItems::DIAMOND_SWORD();
+    
+    $sword->setCustomName("§6Excalibur");
+    $sword->setLore([
+        "§7A legendary blade",
+        "§7forged by ancient smiths",
+        "",
+        "§9Sharpness X",
+        "§9Unbreaking V"
+    ]);
+    
+    $sword->addEnchantment(new EnchantmentInstance(VanillaEnchantments::SHARPNESS(), 10));
+    $sword->addEnchantment(new EnchantmentInstance(VanillaEnchantments::UNBREAKING(), 5));
+    
+    // Add custom NBT
+    $nbt = $sword->getNamedTag();
+    $nbt->setString("ItemType", "legendary");
+    $nbt->setInt("ItemLevel", 100);
+    $sword->setNamedTag($nbt);
+    
+    return $sword;
+}
+```
+
+### Checking Item Data
+
+```php
+use pocketmine\event\player\PlayerInteractEvent;
+
+public function onInteract(PlayerInteractEvent $event) : void{
+    $player = $event->getPlayer();
+    $item = $event->getItem();
+    
+    // Check custom NBT
+    $nbt = $item->getNamedTag();
+    if($nbt->getTag("ItemType") !== null){
+        $type = $nbt->getString("ItemType");
+        if($type === "legendary"){
+            $level = $nbt->getInt("ItemLevel", 1);
+            $player->sendMessage("Legendary Item (Level $level)!");
+        }
+    }
+}
+```
+
+### Item Durability
+
+```php
+use pocketmine\item\Durable;
+
+if($item instanceof Durable){
+    $damage = $item->getDamage();
+    $maxDurability = $item->getMaxDurability();
+    $remaining = $maxDurability - $damage;
+    
+    $player->sendMessage("Durability: $remaining / $maxDurability");
+    
+    // Damage the item
+    $item->applyDamage(1);
+}
+```
+
+### Giving Items with Commands
+
+```php
+use pocketmine\command\Command;
+use pocketmine\command\CommandSender;
+use pocketmine\player\Player;
+use pocketmine\item\VanillaItems;
+
+public function onCommand(CommandSender $sender, Command $command, string $label, array $args) : bool{
+    if($command->getName() === "givekit"){
+        if($sender instanceof Player){
+            $sender->getInventory()->addItem(
+                VanillaItems::DIAMOND_SWORD(),
+                VanillaItems::DIAMOND_PICKAXE(),
+                VanillaItems::DIAMOND_AXE(),
+                VanillaItems::COOKED_BEEF()->setCount(64)
+            );
+            $sender->sendMessage("Kit received!");
+            return true;
+        }
+    }
+    return false;
+}
+```

@@ -1,0 +1,398 @@
+---
+title: Inventory API
+description: Manage inventories, items, and inventory transactions
+---
+
+The inventory API provides interfaces and classes for managing item storage, player inventories, and inventory transactions.
+
+## Inventory Interface
+
+The base interface for all inventory types.
+
+### Constants
+
+<ParamField path="Inventory::MAX_STACK" type="int" default="64">
+  Default maximum stack size for items
+</ParamField>
+
+### Basic Methods
+
+```php
+// Get inventory size (number of slots)
+public function getSize() : int
+
+// Get maximum stack size for this inventory
+public function getMaxStackSize() : int
+
+// Set maximum stack size
+public function setMaxStackSize(int $size) : void
+
+// Check if a slot exists
+public function slotExists(int $slot) : bool
+```
+
+### Item Management
+
+```php
+// Get item in a specific slot
+public function getItem(int $index) : Item
+
+// Set item in a specific slot
+public function setItem(int $index, Item $item) : void
+
+// Get all items (optionally including empty slots)
+public function getContents(bool $includeEmpty = false) : array
+
+// Set all inventory contents
+public function setContents(array $items) : void
+
+// Clear a specific slot
+public function clear(int $index) : void
+
+// Clear all slots
+public function clearAll() : void
+
+// Swap two slots
+public function swap(int $slot1, int $slot2) : void
+```
+
+### Adding and Removing Items
+
+```php
+// Add items to inventory (returns items that couldn't fit)
+public function addItem(Item ...$slots) : array
+
+// Check if item can be added
+public function canAddItem(Item $item) : bool
+
+// Get how many of an item can be added
+public function getAddableItemQuantity(Item $item) : int
+
+// Remove items from inventory (returns items that couldn't be removed)
+public function removeItem(Item ...$slots) : array
+
+// Remove all items matching the given item
+public function remove(Item $item) : void
+```
+
+### Searching and Checking
+
+```php
+// Check if inventory contains at least the given amount
+public function contains(Item $item) : bool
+
+// Get all slots containing matching items
+public function all(Item $item) : array
+
+// Get first slot with matching item (returns -1 if not found)
+public function first(Item $item, bool $exact = false) : int
+
+// Get first empty slot (returns -1 if not found)
+public function firstEmpty() : int
+
+// Check if a slot is empty
+public function isSlotEmpty(int $index) : bool
+```
+
+### Viewers and Listeners
+
+```php
+// Get all players viewing this inventory
+public function getViewers() : array
+
+// Called when player opens inventory
+public function onOpen(Player $who) : void
+
+// Called when player closes inventory
+public function onClose(Player $who) : void
+
+// Get inventory listeners
+public function getListeners() : ObjectSet
+```
+
+## PlayerInventory
+
+Specialized inventory for player items with hotbar support.
+
+### Constructor
+
+```php
+new PlayerInventory(Human $player)
+```
+
+### Hotbar Methods
+
+```php
+// Get the number of hotbar slots (always 9)
+public function getHotbarSize() : int
+
+// Check if a slot is a hotbar slot
+public function isHotbarSlot(int $slot) : bool
+
+// Get item in hotbar slot (0-8)
+public function getHotbarSlotItem(int $hotbarSlot) : Item
+
+// Get currently held hotbar slot index
+public function getHeldItemIndex() : int
+
+// Set which hotbar slot is held (0-8)
+public function setHeldItemIndex(int $hotbarSlot) : void
+
+// Get the currently held item
+public function getItemInHand() : Item
+
+// Set the currently held item
+public function setItemInHand(Item $item) : void
+```
+
+### Example: Player Inventory Management
+
+```php
+use pocketmine\player\Player;
+use pocketmine\item\VanillaItems;
+
+function giveStarterKit(Player $player) : void {
+    $inventory = $player->getInventory();
+    
+    // Give items
+    $inventory->addItem(
+        VanillaItems::DIAMOND_SWORD(),
+        VanillaItems::GOLDEN_APPLE()->setCount(5),
+        VanillaItems::STEAK()->setCount(16)
+    );
+    
+    // Set specific slot
+    $inventory->setItem(0, VanillaItems::DIAMOND_SWORD());
+    
+    // Set item in hand
+    $inventory->setItemInHand(VanillaItems::DIAMOND_SWORD());
+}
+
+function hasSpace(Player $player, Item $item) : bool {
+    $inventory = $player->getInventory();
+    
+    // Check if item can be added
+    if ($inventory->canAddItem($item)) {
+        return true;
+    }
+    
+    // Check how many can be added
+    $quantity = $inventory->getAddableItemQuantity($item);
+    if ($quantity >= $item->getCount()) {
+        return true;
+    }
+    
+    return false;
+}
+```
+
+## BaseInventory
+
+Abstract base class implementing common inventory functionality.
+
+### Example: Custom Inventory
+
+```php
+use pocketmine\inventory\BaseInventory;
+use pocketmine\inventory\SimpleInventory;
+use pocketmine\item\Item;
+use pocketmine\player\Player;
+
+class ShopInventory extends SimpleInventory {
+    
+    public function __construct() {
+        parent::__construct(27); // 27 slots (3 rows)
+        $this->initializeShop();
+    }
+    
+    private function initializeShop() : void {
+        // Set up shop items
+        $this->setItem(0, VanillaItems::DIAMOND_SWORD());
+        $this->setItem(1, VanillaItems::DIAMOND_PICKAXE());
+        $this->setItem(2, VanillaItems::DIAMOND_AXE());
+        
+        $this->setItem(9, VanillaItems::GOLDEN_APPLE()->setCount(1));
+        $this->setItem(10, VanillaItems::ENCHANTED_GOLDEN_APPLE()->setCount(1));
+        
+        $this->setItem(18, VanillaItems::DIAMOND()->setCount(64));
+        $this->setItem(19, VanillaItems::EMERALD()->setCount(64));
+    }
+    
+    public function onOpen(Player $who) : void {
+        parent::onOpen($who);
+        $who->sendMessage("Welcome to the shop!");
+    }
+    
+    public function onClose(Player $who) : void {
+        parent::onClose($who);
+        // Reset shop inventory on close
+        $this->clearAll();
+        $this->initializeShop();
+    }
+}
+```
+
+## ArmorInventory
+
+Manages player armor slots.
+
+### Armor Slots
+
+```php
+use pocketmine\inventory\ArmorInventory;
+
+// Slot indices
+ArmorInventory::SLOT_HEAD      // 0 - Helmet
+ArmorInventory::SLOT_CHEST     // 1 - Chestplate
+ArmorInventory::SLOT_LEGS      // 2 - Leggings
+ArmorInventory::SLOT_FEET      // 3 - Boots
+```
+
+### Methods
+
+```php
+// Get armor pieces
+public function getHelmet() : Item
+public function getChestplate() : Item
+public function getLeggings() : Item
+public function getBoots() : Item
+
+// Set armor pieces
+public function setHelmet(Item $helmet) : void
+public function setChestplate(Item $chestplate) : void
+public function setLeggings(Item $leggings) : void
+public function setBoots(Item $boots) : void
+```
+
+### Example: Armor Management
+
+```php
+use pocketmine\player\Player;
+use pocketmine\item\VanillaItems;
+
+function giveDiamondArmor(Player $player) : void {
+    $armor = $player->getArmorInventory();
+    
+    $armor->setHelmet(VanillaItems::DIAMOND_HELMET());
+    $armor->setChestplate(VanillaItems::DIAMOND_CHESTPLATE());
+    $armor->setLeggings(VanillaItems::DIAMOND_LEGGINGS());
+    $armor->setBoots(VanillaItems::DIAMOND_BOOTS());
+}
+
+function getArmorPoints(Player $player) : int {
+    $armor = $player->getArmorInventory();
+    $points = 0;
+    
+    foreach ($armor->getContents() as $item) {
+        if ($item instanceof Armor) {
+            $points += $item->getDefensePoints();
+        }
+    }
+    
+    return $points;
+}
+```
+
+## InventoryListener
+
+Listen to inventory changes.
+
+### Interface Methods
+
+```php
+interface InventoryListener {
+    // Called when a single slot changes
+    public function onSlotChange(Inventory $inventory, int $slot, Item $oldItem) : void;
+    
+    // Called when inventory contents change
+    public function onContentChange(Inventory $inventory, array $oldContents) : void;
+}
+```
+
+### Example: Inventory Logging
+
+```php
+use pocketmine\inventory\Inventory;
+use pocketmine\inventory\InventoryListener;
+use pocketmine\item\Item;
+
+class InventoryLogger implements InventoryListener {
+    
+    public function __construct(
+        private Plugin $plugin
+    ){}
+    
+    public function onSlotChange(Inventory $inventory, int $slot, Item $oldItem) : void {
+        $newItem = $inventory->getItem($slot);
+        
+        $this->plugin->getLogger()->info(
+            "Slot $slot changed from {$oldItem->getName()} " .
+            "to {$newItem->getName()}"
+        );
+    }
+    
+    public function onContentChange(Inventory $inventory, array $oldContents) : void {
+        $this->plugin->getLogger()->info("Inventory contents changed");
+    }
+}
+
+// Usage
+$inventory = $player->getInventory();
+$logger = new InventoryLogger($this);
+$inventory->getListeners()->add($logger);
+```
+
+## Inventory Transactions
+
+Handle complex inventory operations atomically.
+
+### TransactionBuilder
+
+```php
+use pocketmine\inventory\transaction\TransactionBuilder;
+use pocketmine\inventory\transaction\action\SlotChangeAction;
+
+// Build a transaction
+$builder = new TransactionBuilder();
+
+$builder->addAction(new SlotChangeAction(
+    $sourceInventory,
+    $sourceSlot,
+    $sourceItem,
+    $targetItem
+));
+
+$builder->addAction(new SlotChangeAction(
+    $targetInventory,
+    $targetSlot,
+    $targetItem,
+    $sourceItem
+));
+
+// Execute transaction
+try {
+    $transaction = $builder->generateTransaction();
+    $transaction->execute();
+} catch (TransactionException $e) {
+    // Transaction failed
+    $player->sendMessage("Transaction failed: " . $e->getMessage());
+}
+```
+
+## Best Practices
+
+1. **Check Before Adding**: Always use `canAddItem()` or `getAddableItemQuantity()` before adding items
+
+2. **Handle Leftovers**: The `addItem()` method returns items that couldn't fit - handle these appropriately
+
+3. **Validate Slots**: Use `slotExists()` to validate slot indices before accessing them
+
+4. **Clone Items**: When storing items for comparison, clone them to avoid reference issues
+
+5. **Use Listeners**: Implement `InventoryListener` for complex inventory tracking instead of polling
+
+6. **Transactions**: Use transactions for operations that need to be atomic (all-or-nothing)
+
+7. **Clear on Close**: For custom inventories, consider clearing contents when players close them
+
+8. **Viewer Management**: Always clean up viewers when removing custom inventories

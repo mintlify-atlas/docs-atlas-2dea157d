@@ -1,0 +1,447 @@
+---
+title: 'Server API'
+description: 'Core server class API reference for PocketMine-MP'
+---
+
+## Overview
+
+The `Server` class is the central component that manages everything in PocketMine-MP. It provides access to worlds, players, plugins, commands, and all other core functionality.
+
+## Getting the Server Instance
+
+```php
+use pocketmine\Server;
+
+$server = Server::getInstance();
+```
+
+## Core Methods
+
+### getName()
+
+Returns the server software name.
+
+```php getName() : string
+public function getName() : string
+```
+
+**Returns:** `string` - Server software name (e.g., "PocketMine-MP")
+
+**Example:**
+```php
+$name = $server->getName(); // "PocketMine-MP"
+```
+
+### isRunning()
+
+Checks if the server is currently running.
+
+```php isRunning() : bool
+public function isRunning() : bool
+```
+
+**Returns:** `bool` - True if server is running
+
+### getVersion()
+
+Returns the Minecraft version the server supports.
+
+```php getVersion() : string
+public function getVersion() : string
+```
+
+**Returns:** `string` - Minecraft protocol version (e.g., "1.20.0")
+
+### getApiVersion()
+
+Returns the PocketMine-MP API version.
+
+```php getApiVersion() : string
+public function getApiVersion() : string
+```
+
+**Returns:** `string` - API version string
+
+## Player Management
+
+### getOnlinePlayers()
+
+Gets all currently online players.
+
+```php getOnlinePlayers() : array
+public function getOnlinePlayers() : array
+```
+
+**Returns:** `Player[]` - Array of online Player objects
+
+**Example:**
+```php
+foreach($server->getOnlinePlayers() as $player) {
+    $player->sendMessage("Hello!");
+}
+```
+
+### getPlayerExact()
+
+Finds an online player by exact name (case insensitive).
+
+```php getPlayerExact(string $name) : ?Player
+public function getPlayerExact(string $name) : ?Player
+```
+
+<ParamField path="name" type="string" required>
+  The exact player name to search for
+</ParamField>
+
+**Returns:** `Player|null` - Player object if found, null otherwise
+
+**Example:**
+```php
+$player = $server->getPlayerExact("Steve");
+if($player !== null) {
+    $player->kick("You have been kicked!");
+}
+```
+
+### getPlayerByUUID()
+
+Finds an online player by their UUID.
+
+```php getPlayerByUUID(UuidInterface $uuid) : ?Player
+public function getPlayerByUUID(UuidInterface $uuid) : ?Player
+```
+
+<ParamField path="uuid" type="UuidInterface" required>
+  The player's UUID
+</ParamField>
+
+**Returns:** `Player|null` - Player object if found, null otherwise
+
+### getMaxPlayers()
+
+Gets the maximum number of players allowed.
+
+```php getMaxPlayers() : int
+public function getMaxPlayers() : int
+```
+
+**Returns:** `int` - Maximum player count
+
+### getOfflinePlayer()
+
+Gets offline player data by name.
+
+```php getOfflinePlayer(string $name) : Player|OfflinePlayer|null
+public function getOfflinePlayer(string $name) : Player|OfflinePlayer|null
+```
+
+<ParamField path="name" type="string" required>
+  Player name to look up
+</ParamField>
+
+**Returns:** `Player|OfflinePlayer|null` - Online player, offline player data, or null
+
+## World Management
+
+### getWorldManager()
+
+Gets the world manager instance.
+
+```php getWorldManager() : WorldManager
+public function getWorldManager() : WorldManager
+```
+
+**Returns:** `WorldManager` - The world manager
+
+**Example:**
+```php
+$worldManager = $server->getWorldManager();
+$world = $worldManager->getDefaultWorld();
+```
+
+## Plugin Management
+
+### getPluginManager()
+
+Gets the plugin manager instance.
+
+```php getPluginManager() : PluginManager
+public function getPluginManager() : PluginManager
+```
+
+**Returns:** `PluginManager` - The plugin manager
+
+**Example:**
+```php
+$pluginManager = $server->getPluginManager();
+$plugin = $pluginManager->getPlugin("MyPlugin");
+```
+
+## Command Management
+
+### getCommandMap()
+
+Gets the command map for registering commands.
+
+```php getCommandMap() : SimpleCommandMap
+public function getCommandMap() : SimpleCommandMap
+```
+
+**Returns:** `SimpleCommandMap` - The command map
+
+**Example:**
+```php
+$commandMap = $server->getCommandMap();
+$commandMap->register("myplugin", new MyCommand());
+```
+
+### getPluginCommand()
+
+Gets a plugin command by name.
+
+```php getPluginCommand(string $name) : Command|PluginOwned|null
+public function getPluginCommand(string $name)
+```
+
+<ParamField path="name" type="string" required>
+  Command name to search for
+</ParamField>
+
+**Returns:** `Command|null` - Command if found and owned by a plugin
+
+## Scheduler
+
+### getAsyncPool()
+
+Gets the async task pool for background operations.
+
+```php getAsyncPool() : AsyncPool
+public function getAsyncPool() : AsyncPool
+```
+
+**Returns:** `AsyncPool` - The async pool
+
+## Server Information
+
+### getMotd()
+
+Gets the server's Message of the Day.
+
+```php getMotd() : string
+public function getMotd() : string
+```
+
+**Returns:** `string` - The server MOTD
+
+### getIp()
+
+Gets the server's IPv4 address.
+
+```php getIp() : string
+public function getIp() : string
+```
+
+**Returns:** `string` - IPv4 address
+
+### getPort()
+
+Gets the server's IPv4 port.
+
+```php getPort() : int
+public function getPort() : int
+```
+
+**Returns:** `int` - Port number
+
+### getTick()
+
+Gets the current server tick count.
+
+```php getTick() : int
+public function getTick() : int
+```
+
+**Returns:** `int` - Current tick number since server start
+
+### getTicksPerSecond()
+
+Gets the current TPS (ticks per second).
+
+```php getTicksPerSecond() : float
+public function getTicksPerSecond() : float
+```
+
+**Returns:** `float` - Current TPS value
+
+### getTicksPerSecondAverage()
+
+Gets the average TPS.
+
+```php getTicksPerSecondAverage() : float
+public function getTicksPerSecondAverage() : float
+```
+
+**Returns:** `float` - Average TPS
+
+## Broadcasting
+
+### broadcastMessage()
+
+Broadcasts a message to all players.
+
+```php broadcastMessage(Translatable|string $message, ?array $recipients = null) : int
+public function broadcastMessage(Translatable|string $message, ?array $recipients = null) : int
+```
+
+<ParamField path="message" type="string|Translatable" required>
+  Message to broadcast
+</ParamField>
+
+<ParamField path="recipients" type="CommandSender[]|null">
+  Optional array of specific recipients. Defaults to all players.
+</ParamField>
+
+**Returns:** `int` - Number of recipients who received the message
+
+**Example:**
+```php
+$count = $server->broadcastMessage("Server restarting in 5 minutes!");
+$server->getLogger()->info("Broadcast sent to $count players");
+```
+
+### broadcastTitle()
+
+Broadcasts a title to all players.
+
+```php broadcastTitle(string $title, string $subtitle = "", int $fadeIn = -1, int $stay = -1, int $fadeOut = -1, ?array $recipients = null) : int
+public function broadcastTitle(string $title, string $subtitle = "", int $fadeIn = -1, int $stay = -1, int $fadeOut = -1, ?array $recipients = null) : int
+```
+
+<ParamField path="title" type="string" required>
+  Title text
+</ParamField>
+
+<ParamField path="subtitle" type="string">
+  Subtitle text (default: "")
+</ParamField>
+
+<ParamField path="fadeIn" type="int">
+  Fade in duration in ticks (default: -1 for client default)
+</ParamField>
+
+<ParamField path="stay" type="int">
+  Stay duration in ticks (default: -1 for client default)
+</ParamField>
+
+<ParamField path="fadeOut" type="int">
+  Fade out duration in ticks (default: -1 for client default)
+</ParamField>
+
+<ParamField path="recipients" type="Player[]|null">
+  Optional array of specific recipients
+</ParamField>
+
+**Returns:** `int` - Number of recipients
+
+**Example:**
+```php
+$server->broadcastTitle("Welcome!", "Thanks for playing", 10, 60, 10);
+```
+
+## Permissions
+
+### isOp()
+
+Checks if a player name is an operator.
+
+```php isOp(string $name) : bool
+public function isOp(string $name) : bool
+```
+
+<ParamField path="name" type="string" required>
+  Player name to check
+</ParamField>
+
+**Returns:** `bool` - True if player is an operator
+
+### addOp()
+
+Adds a player as an operator.
+
+```php addOp(string $name) : void
+public function addOp(string $name) : void
+```
+
+<ParamField path="name" type="string" required>
+  Player name to make operator
+</ParamField>
+
+### removeOp()
+
+Removes operator status from a player.
+
+```php removeOp(string $name) : void
+public function removeOp(string $name) : void
+```
+
+<ParamField path="name" type="string" required>
+  Player name to remove operator from
+</ParamField>
+
+### isWhitelisted()
+
+Checks if a player is whitelisted.
+
+```php isWhitelisted(string $name) : bool
+public function isWhitelisted(string $name) : bool
+```
+
+<ParamField path="name" type="string" required>
+  Player name to check
+</ParamField>
+
+**Returns:** `bool` - True if whitelisted or whitelist is disabled
+
+### addWhitelist()
+
+Adds a player to the whitelist.
+
+```php addWhitelist(string $name) : void
+public function addWhitelist(string $name) : void
+```
+
+<ParamField path="name" type="string" required>
+  Player name to whitelist
+</ParamField>
+
+### removeWhitelist()
+
+Removes a player from the whitelist.
+
+```php removeWhitelist(string $name) : void
+public function removeWhitelist(string $name) : void
+```
+
+<ParamField path="name" type="string" required>
+  Player name to remove from whitelist
+</ParamField>
+
+## Constants
+
+```php
+const TARGET_TICKS_PER_SECOND = 20;
+const BROADCAST_CHANNEL_ADMINISTRATIVE = "pocketmine.broadcast.admin";
+const BROADCAST_CHANNEL_USERS = "pocketmine.broadcast.user";
+```
+
+<ResponseField name="TARGET_TICKS_PER_SECOND" type="int">
+  Target server tick rate (20 TPS = 1 tick per 50ms)
+</ResponseField>
+
+<ResponseField name="BROADCAST_CHANNEL_ADMINISTRATIVE" type="string">
+  Broadcast channel for administrative messages
+</ResponseField>
+
+<ResponseField name="BROADCAST_CHANNEL_USERS" type="string">
+  Broadcast channel for user messages
+</ResponseField>

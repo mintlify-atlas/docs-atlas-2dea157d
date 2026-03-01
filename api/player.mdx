@@ -1,0 +1,1166 @@
+---
+title: 'Player API'
+description: 'Complete API reference for player management and interaction in PocketMine-MP'
+---
+
+## Overview
+
+The Player API provides comprehensive control over player entities, including inventory management, permissions, teleportation, UI interactions, and more.
+
+## Player Class
+
+The Player class represents a connected player.
+
+**Namespace:** `pocketmine\player\Player`
+
+### Identity & Authentication
+
+#### getName
+
+```php
+public function getName() : string
+```
+
+Returns the player's username.
+
+<ResponseField name="return" type="string">
+  The player's username
+</ResponseField>
+
+```php
+// Example: Get player name
+$name = $player->getName();
+$player->sendMessage("Hello, $name!");
+```
+
+---
+
+#### getDisplayName
+
+```php
+public function getDisplayName() : string
+```
+
+Returns the player's display name (used in chat).
+
+<ResponseField name="return" type="string">
+  The display name
+</ResponseField>
+
+---
+
+#### setDisplayName
+
+```php
+public function setDisplayName(string $name) : void
+```
+
+Sets the player's display name.
+
+<ParamField path="name" type="string" required>
+  New display name
+</ParamField>
+
+```php
+// Example: Set custom display name
+$player->setDisplayName("§6[VIP] " . $player->getName());
+```
+
+---
+
+#### getUniqueId
+
+```php
+public function getUniqueId() : UuidInterface
+```
+
+Returns the player's UUID.
+
+<ResponseField name="return" type="UuidInterface">
+  The player's UUID
+</ResponseField>
+
+```php
+// Example: Store player UUID
+$uuid = $player->getUniqueId();
+$uuidString = $uuid->toString();
+// Store in database, etc.
+```
+
+---
+
+#### getXuid
+
+```php
+public function getXuid() : string
+```
+
+Returns the Xbox Live user ID (XUID) if logged into Xbox Live.
+
+<ResponseField name="return" type="string">
+  XUID, or empty string if not logged in
+</ResponseField>
+
+---
+
+#### isAuthenticated
+
+```php
+public function isAuthenticated() : bool
+```
+
+Returns whether the player is authenticated with Xbox Live.
+
+---
+
+### Communication
+
+#### sendMessage
+
+```php
+public function sendMessage(Translatable|string $message) : void
+```
+
+Sends a message to the player.
+
+<ParamField path="message" type="Translatable|string" required>
+  Message to send
+</ParamField>
+
+```php
+// Example: Send messages
+$player->sendMessage("§aWelcome to the server!");
+$player->sendMessage("§cYou don't have permission!");
+
+// Send multiple lines
+$player->sendMessage("Line 1\nLine 2\nLine 3");
+```
+
+---
+
+#### sendPopup
+
+```php
+public function sendPopup(string $message) : void
+```
+
+Sends a popup message (appears above hotbar).
+
+<ParamField path="message" type="string" required>
+  Popup message
+</ParamField>
+
+```php
+// Example: Show popup
+$player->sendPopup("§eCoins: " . $coins);
+```
+
+---
+
+#### sendTip
+
+```php
+public function sendTip(string $message) : void
+```
+
+Sends a tip message (appears above hotbar, replacing popup).
+
+---
+
+#### sendTitle
+
+```php
+public function sendTitle(string $title, string $subtitle = "", int $fadeIn = -1, int $stay = -1, int $fadeOut = -1) : void
+```
+
+Sends a title to the player.
+
+<ParamField path="title" type="string" required>
+  Main title text
+</ParamField>
+
+<ParamField path="subtitle" type="string" default="">
+  Subtitle text
+</ParamField>
+
+<ParamField path="fadeIn" type="int" default="-1">
+  Fade in duration in ticks (-1 = default)
+</ParamField>
+
+<ParamField path="stay" type="int" default="-1">
+  Stay duration in ticks (-1 = default)
+</ParamField>
+
+<ParamField path="fadeOut" type="int" default="-1">
+  Fade out duration in ticks (-1 = default)
+</ParamField>
+
+```php
+// Example: Show title
+$player->sendTitle("§6Welcome!", "§eTo our server", 10, 40, 10);
+
+// Example: Clear title
+$player->sendTitle("", "", 0, 0, 0);
+```
+
+---
+
+#### sendActionBarMessage
+
+```php
+public function sendActionBarMessage(string $message) : void
+```
+
+Sends an action bar message (appears above hotbar).
+
+<ParamField path="message" type="string" required>
+  Action bar message
+</ParamField>
+
+```php
+// Example: Show action bar
+$player->sendActionBarMessage("§eHealth: §c" . $player->getHealth());
+```
+
+---
+
+### Connection & Session
+
+#### isOnline
+
+```php
+public function isOnline() : bool
+```
+
+Returns whether the player is connected.
+
+---
+
+#### isConnected
+
+```php
+public function isConnected() : bool
+```
+
+Returns whether the player is connected.
+
+---
+
+#### kick
+
+```php
+public function kick(Translatable|string $reason = "", ?Translatable|string $quitMessage = null) : bool
+```
+
+Kicks the player from the server.
+
+<ParamField path="reason" type="Translatable|string" default="">
+  Kick reason shown to player
+</ParamField>
+
+<ParamField path="quitMessage" type="Translatable|string|null">
+  Custom quit message (null = default)
+</ParamField>
+
+```php
+// Example: Kick player
+$player->kick("You have been banned!");
+
+// Kick with custom quit message
+$player->kick("Server restart", "Player left");
+```
+
+---
+
+#### transfer
+
+```php
+public function transfer(string $address, int $port = 19132, Translatable|string $message = "") : bool
+```
+
+Transfers the player to another server.
+
+<ParamField path="address" type="string" required>
+  Server IP address
+</ParamField>
+
+<ParamField path="port" type="int" default="19132">
+  Server port
+</ParamField>
+
+<ParamField path="message" type="Translatable|string" default="">
+  Transfer message
+</ParamField>
+
+```php
+// Example: Transfer to lobby
+$player->transfer("lobby.example.com", 19132, "Transferring to lobby...");
+```
+
+---
+
+### Inventory & Items
+
+#### getInventory
+
+```php
+public function getInventory() : PlayerInventory
+```
+
+Returns the player's inventory.
+
+<ResponseField name="return" type="PlayerInventory">
+  The player's inventory
+</ResponseField>
+
+```php
+use pocketmine\item\VanillaItems;
+
+// Example: Give items
+$player->getInventory()->addItem(VanillaItems::DIAMOND()->setCount(64));
+
+// Example: Clear inventory
+$player->getInventory()->clearAll();
+
+// Example: Get held item
+$heldItem = $player->getInventory()->getItemInHand();
+```
+
+---
+
+#### getArmorInventory
+
+```php
+public function getArmorInventory() : ArmorInventory
+```
+
+Returns the player's armor inventory.
+
+<ResponseField name="return" type="ArmorInventory">
+  The armor inventory
+</ResponseField>
+
+```php
+use pocketmine\item\VanillaItems;
+
+// Example: Give armor
+$armor = $player->getArmorInventory();
+$armor->setHelmet(VanillaItems::DIAMOND_HELMET());
+$armor->setChestplate(VanillaItems::DIAMOND_CHESTPLATE());
+$armor->setLeggings(VanillaItems::DIAMOND_LEGGINGS());
+$armor->setBoots(VanillaItems::DIAMOND_BOOTS());
+```
+
+---
+
+#### getEnderInventory
+
+```php
+public function getEnderInventory() : PlayerEnderInventory
+```
+
+Returns the player's ender chest inventory.
+
+---
+
+#### getCursorInventory
+
+```php
+public function getCursorInventory() : PlayerCursorInventory
+```
+
+Returns the cursor inventory (item being held by cursor).
+
+---
+
+### Game Mode
+
+#### getGamemode
+
+```php
+public function getGamemode() : GameMode
+```
+
+Returns the player's current game mode.
+
+<ResponseField name="return" type="GameMode">
+  The game mode
+</ResponseField>
+
+---
+
+#### setGamemode
+
+```php
+public function setGamemode(GameMode $gameMode) : void
+```
+
+Sets the player's game mode.
+
+<ParamField path="gameMode" type="GameMode" required>
+  New game mode
+</ParamField>
+
+```php
+use pocketmine\player\GameMode;
+
+// Example: Set game mode
+$player->setGamemode(GameMode::CREATIVE());
+$player->setGamemode(GameMode::SURVIVAL());
+$player->setGamemode(GameMode::ADVENTURE());
+$player->setGamemode(GameMode::SPECTATOR());
+```
+
+---
+
+#### isCreative
+
+```php
+public function isCreative(bool $includeSpectator = false) : bool
+```
+
+Returns whether the player is in creative mode.
+
+<ParamField path="includeSpectator" type="bool" default="false">
+  Whether to include spectator mode
+</ParamField>
+
+---
+
+#### isSurvival
+
+```php
+public function isSurvival(bool $includeAdventure = true) : bool
+```
+
+Returns whether the player is in survival mode.
+
+---
+
+#### isSpectator
+
+```php
+public function isSpectator() : bool
+```
+
+Returns whether the player is in spectator mode.
+
+---
+
+#### isAdventure
+
+```php
+public function isAdventure(bool $includeSurvival = false) : bool
+```
+
+Returns whether the player is in adventure mode.
+
+---
+
+### Movement & Teleportation
+
+#### teleport
+
+```php
+public function teleport(Vector3|Position|Location $pos, ?float $yaw = null, ?float $pitch = null) : bool
+```
+
+Teleports the player to a location.
+
+<ParamField path="pos" type="Vector3|Position|Location" required>
+  Destination position
+</ParamField>
+
+<ParamField path="yaw" type="float|null">
+  New yaw rotation
+</ParamField>
+
+<ParamField path="pitch" type="float|null">
+  New pitch rotation
+</ParamField>
+
+```php
+// Example: Teleport player
+$player->teleport(new Vector3(100, 64, 100));
+
+// Teleport to spawn
+$player->teleport($world->getSafeSpawn());
+
+// Teleport with rotation
+$player->teleport($pos, 90.0, 0.0);
+```
+
+---
+
+#### getAllowFlight
+
+```php
+public function getAllowFlight() : bool
+```
+
+Returns whether the player is allowed to toggle flight.
+
+---
+
+#### setAllowFlight
+
+```php
+public function setAllowFlight(bool $value) : void
+```
+
+Sets whether the player can toggle flight.
+
+<ParamField path="value" type="bool" required>
+  Whether to allow flight
+</ParamField>
+
+```php
+// Example: Enable flight
+$player->setAllowFlight(true);
+$player->setFlying(true);
+```
+
+---
+
+#### isFlying
+
+```php
+public function isFlying() : bool
+```
+
+Returns whether the player is flying.
+
+---
+
+#### setFlying
+
+```php
+public function setFlying(bool $value) : void
+```
+
+Sets whether the player is flying.
+
+<ParamField path="value" type="bool" required>
+  Whether the player should be flying
+</ParamField>
+
+---
+
+#### setFlightSpeedMultiplier
+
+```php
+public function setFlightSpeedMultiplier(float $flightSpeedMultiplier) : void
+```
+
+Sets the player's flight speed multiplier.
+
+<ParamField path="flightSpeedMultiplier" type="float" required>
+  Flight speed multiplier (default: 0.05)
+</ParamField>
+
+```php
+// Example: Increase flight speed
+$player->setFlightSpeedMultiplier(0.1); // 2x speed
+```
+
+---
+
+#### getFlightSpeedMultiplier
+
+```php
+public function getFlightSpeedMultiplier() : float
+```
+
+Returns the flight speed multiplier.
+
+---
+
+### Permissions
+
+#### hasPermission
+
+```php
+public function hasPermission(string|Permission $name) : bool
+```
+
+Returns whether the player has a permission.
+
+<ParamField path="name" type="string|Permission" required>
+  Permission name or object
+</ParamField>
+
+```php
+// Example: Check permission
+if($player->hasPermission("server.command.admin")){
+    // Player has permission
+}
+```
+
+---
+
+#### addAttachment
+
+```php
+public function addAttachment(Plugin $plugin, ?string $name = null, ?bool $value = null) : PermissionAttachment
+```
+
+Adds a permission attachment.
+
+<ParamField path="plugin" type="Plugin" required>
+  Plugin adding the attachment
+</ParamField>
+
+<ParamField path="name" type="string|null">
+  Permission name
+</ParamField>
+
+<ParamField path="value" type="bool|null">
+  Permission value
+</ParamField>
+
+```php
+// Example: Add temporary permission
+$attachment = $player->addAttachment($this);
+$attachment->setPermission("custom.permission", true);
+
+// Remove later
+$player->removeAttachment($attachment);
+```
+
+---
+
+#### isOp
+
+```php
+public function isOp() : bool
+```
+
+Returns whether the player is an operator.
+
+---
+
+#### setOp
+
+```php
+public function setOp(bool $value) : void
+```
+
+Sets the player's operator status.
+
+---
+
+### Experience & Levels
+
+#### getXpLevel
+
+```php
+public function getXpLevel() : int
+```
+
+Returns the player's experience level.
+
+---
+
+#### setXpLevel
+
+```php
+public function setXpLevel(int $level) : void
+```
+
+Sets the player's experience level.
+
+<ParamField path="level" type="int" required>
+  Experience level to set
+</ParamField>
+
+```php
+// Example: Set level
+$player->setXpLevel(50);
+```
+
+---
+
+#### getXpProgress
+
+```php
+public function getXpProgress() : float
+```
+
+Returns progress to next level (0.0-1.0).
+
+---
+
+#### setXpProgress
+
+```php
+public function setXpProgress(float $progress) : void
+```
+
+Sets progress to next level.
+
+<ParamField path="progress" type="float" required>
+  Progress value (0.0-1.0)
+</ParamField>
+
+---
+
+#### getCurrentTotalXp
+
+```php
+public function getCurrentTotalXp() : int
+```
+
+Returns total XP points.
+
+---
+
+#### setCurrentTotalXp
+
+```php
+public function setCurrentTotalXp(int $amount) : void
+```
+
+Sets total XP points.
+
+---
+
+#### addXpLevels
+
+```php
+public function addXpLevels(int $amount) : void
+```
+
+Adds experience levels.
+
+<ParamField path="amount" type="int" required>
+  Levels to add (can be negative)
+</ParamField>
+
+```php
+// Example: Give XP
+$player->addXpLevels(5);
+
+// Remove XP
+$player->addXpLevels(-5);
+```
+
+---
+
+### Hunger & Health
+
+#### getHungerManager
+
+```php
+public function getHungerManager() : HungerManager
+```
+
+Returns the hunger manager.
+
+<ResponseField name="return" type="HungerManager">
+  The hunger manager
+</ResponseField>
+
+```php
+// Example: Manage hunger
+$hunger = $player->getHungerManager();
+$hunger->setFood(20);
+$hunger->setSaturation(20.0);
+$hunger->setExhaustion(0.0);
+```
+
+---
+
+#### getExperienceManager
+
+```php
+public function getExperienceManager() : ExperienceManager
+```
+
+Returns the experience manager.
+
+---
+
+### Spawn & Death
+
+#### getSpawn
+
+```php
+public function getSpawn() : Position
+```
+
+Returns the player's spawn position.
+
+---
+
+#### setSpawn
+
+```php
+public function setSpawn(?Position $pos) : void
+```
+
+Sets the player's spawn position.
+
+<ParamField path="pos" type="Position|null" required>
+  Spawn position (null to use world spawn)
+</ParamField>
+
+```php
+// Example: Set spawn at current position
+$player->setSpawn($player->getPosition());
+
+// Reset to world spawn
+$player->setSpawn(null);
+```
+
+---
+
+#### respawn
+
+```php
+public function respawn() : void
+```
+
+Respawns the player.
+
+```php
+// Example: Force respawn
+if(!$player->isAlive()){
+    $player->respawn();
+}
+```
+
+---
+
+### View Distance
+
+#### getViewDistance
+
+```php
+public function getViewDistance() : int
+```
+
+Returns the player's view distance.
+
+---
+
+#### setViewDistance
+
+```php
+public function setViewDistance(int $distance) : void
+```
+
+Sets the player's view distance.
+
+<ParamField path="distance" type="int" required>
+  View distance in chunks
+</ParamField>
+
+```php
+// Example: Set view distance
+$player->setViewDistance(8);
+```
+
+---
+
+### Forms & UI
+
+#### sendForm
+
+```php
+public function sendForm(Form $form) : void
+```
+
+Sends a form to the player.
+
+<ParamField path="form" type="Form" required>
+  Form to send
+</ParamField>
+
+```php
+use pocketmine\form\SimpleForm;
+
+// Example: Send simple form
+$form = new SimpleForm(function(Player $player, ?int $data){
+    if($data === null){
+        // Form closed
+        return;
+    }
+    
+    // Button clicked
+    $player->sendMessage("You clicked button $data");
+});
+
+$form->setTitle("Example Form");
+$form->setContent("Choose an option:");
+$form->addButton("Option 1");
+$form->addButton("Option 2");
+
+$player->sendForm($form);
+```
+
+---
+
+### Window Management
+
+#### getCurrentWindow
+
+```php
+public function getCurrentWindow() : ?Inventory
+```
+
+Returns the currently open window.
+
+---
+
+#### removeCurrentWindow
+
+```php
+public function removeCurrentWindow() : void
+```
+
+Closes the current window.
+
+```php
+// Example: Close current window
+if($player->getCurrentWindow() !== null){
+    $player->removeCurrentWindow();
+}
+```
+
+---
+
+### Visibility
+
+#### canSee
+
+```php
+public function canSee(Player $player) : bool
+```
+
+Returns whether this player can see another player.
+
+---
+
+#### hidePlayer
+
+```php
+public function hidePlayer(Player $player) : void
+```
+
+Hides another player from this player.
+
+<ParamField path="player" type="Player" required>
+  Player to hide
+</ParamField>
+
+```php
+// Example: Hide player
+$player->hidePlayer($otherPlayer);
+```
+
+---
+
+#### showPlayer
+
+```php
+public function showPlayer(Player $player) : void
+```
+
+Shows a previously hidden player.
+
+<ParamField path="player" type="Player" required>
+  Player to show
+</ParamField>
+
+```php
+// Example: Show player
+$player->showPlayer($otherPlayer);
+```
+
+---
+
+### Locale & Language
+
+#### getLocale
+
+```php
+public function getLocale() : string
+```
+
+Returns the player's locale (e.g., "en_US").
+
+<ResponseField name="return" type="string">
+  The locale string
+</ResponseField>
+
+```php
+// Example: Check locale
+$locale = $player->getLocale();
+if($locale === "es_ES"){
+    $player->sendMessage("¡Hola!");
+} else {
+    $player->sendMessage("Hello!");
+}
+```
+
+---
+
+### Timing & Statistics
+
+#### getFirstPlayed
+
+```php
+public function getFirstPlayed() : ?int
+```
+
+Returns timestamp of first join.
+
+<ResponseField name="return" type="int|null">
+  Unix timestamp in milliseconds
+</ResponseField>
+
+---
+
+#### getLastPlayed
+
+```php
+public function getLastPlayed() : ?int
+```
+
+Returns timestamp of last join.
+
+---
+
+#### hasPlayedBefore
+
+```php
+public function hasPlayedBefore() : bool
+```
+
+Returns whether the player has played before.
+
+---
+
+## Common Usage Patterns
+
+### Welcome Message
+
+```php
+use pocketmine\event\player\PlayerJoinEvent;
+
+public function onJoin(PlayerJoinEvent $event) : void{
+    $player = $event->getPlayer();
+    
+    if(!$player->hasPlayedBefore()){
+        $player->sendTitle("§6Welcome!", "§eTo our server");
+        $player->sendMessage("§aWelcome to the server, " . $player->getName() . "!");
+    } else {
+        $player->sendMessage("§aWelcome back!");
+    }
+}
+```
+
+### Kit System
+
+```php
+use pocketmine\item\VanillaItems;
+
+public function giveKit(Player $player, string $kitName) : void{
+    switch($kitName){
+        case "starter":
+            $player->getInventory()->addItem(
+                VanillaItems::STONE_SWORD(),
+                VanillaItems::STONE_PICKAXE(),
+                VanillaItems::BREAD()->setCount(16)
+            );
+            break;
+            
+        case "warrior":
+            $player->getInventory()->addItem(
+                VanillaItems::DIAMOND_SWORD(),
+                VanillaItems::BOW(),
+                VanillaItems::ARROW()->setCount(64)
+            );
+            
+            $armor = $player->getArmorInventory();
+            $armor->setHelmet(VanillaItems::DIAMOND_HELMET());
+            $armor->setChestplate(VanillaItems::DIAMOND_CHESTPLATE());
+            $armor->setLeggings(VanillaItems::DIAMOND_LEGGINGS());
+            $armor->setBoots(VanillaItems::DIAMOND_BOOTS());
+            break;
+    }
+    
+    $player->sendMessage("§aKit '$kitName' received!");
+}
+```
+
+### Scoreboard/Sidebar
+
+```php
+use pocketmine\network\mcpe\protocol\RemoveObjectivePacket;
+use pocketmine\network\mcpe\protocol\SetDisplayObjectivePacket;
+use pocketmine\network\mcpe\protocol\SetScorePacket;
+use pocketmine\network\mcpe\protocol\types\ScorePacketEntry;
+
+public function updateScoreboard(Player $player) : void{
+    // Remove old scoreboard
+    $pk = new RemoveObjectivePacket();
+    $pk->objectiveName = "sidebar";
+    $player->getNetworkSession()->sendDataPacket($pk);
+    
+    // Create new scoreboard
+    $pk = new SetDisplayObjectivePacket();
+    $pk->displaySlot = "sidebar";
+    $pk->objectiveName = "sidebar";
+    $pk->displayName = "§6Server Stats";
+    $pk->criteriaName = "dummy";
+    $pk->sortOrder = 0;
+    $player->getNetworkSession()->sendDataPacket($pk);
+    
+    // Add lines
+    $lines = [
+        "§7-------------------",
+        "§eName: §f" . $player->getName(),
+        "§eLevel: §f" . $player->getXpLevel(),
+        "§7-------------------"
+    ];
+    
+    $pk = new SetScorePacket();
+    $pk->type = SetScorePacket::TYPE_CHANGE;
+    
+    foreach($lines as $i => $line){
+        $entry = new ScorePacketEntry();
+        $entry->objectiveName = "sidebar";
+        $entry->type = ScorePacketEntry::TYPE_FAKE_PLAYER;
+        $entry->customName = $line;
+        $entry->score = count($lines) - $i;
+        $entry->scoreboardId = $i;
+        $pk->entries[] = $entry;
+    }
+    
+    $player->getNetworkSession()->sendDataPacket($pk);
+}
+```
+
+### Permission Management
+
+```php
+public function giveTemporaryPermission(Player $player, string $permission, int $duration) : void{
+    $attachment = $player->addAttachment($this);
+    $attachment->setPermission($permission, true);
+    
+    $player->sendMessage("§aYou have been granted temporary permission: $permission");
+    
+    // Remove after duration
+    $this->getScheduler()->scheduleDelayedTask(new ClosureTask(
+        function() use ($player, $attachment, $permission) : void{
+            if($player->isOnline()){
+                $player->removeAttachment($attachment);
+                $player->sendMessage("§cYour temporary permission has expired: $permission");
+            }
+        }
+    ), $duration * 20); // Convert seconds to ticks
+}
+```
+
+Completed World & Gameplay API pages in api/ directory

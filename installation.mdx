@@ -1,0 +1,307 @@
+---
+title: Installation
+description: Step-by-step guide to installing PocketMine-MP on different platforms
+---
+
+# Installing PocketMine-MP
+
+PocketMine-MP can be installed in several ways depending on your platform and use case. Choose the method that best suits your needs.
+
+## Installation Methods
+
+<CardGroup cols={2}>
+  <Card title="Pre-built PHAR" icon="file-zipper">
+    Download and run the ready-to-use PHAR file (recommended for most users)
+  </Card>
+  <Card title="Docker" icon="docker">
+    Run in a container with all dependencies included
+  </Card>
+  <Card title="From Source" icon="code">
+    Build from source code for development or customization
+  </Card>
+</CardGroup>
+
+## Pre-requisites
+
+<Note>
+  PocketMine-MP requires **PHP 8.2 or newer** with several non-standard extensions. PMMP provides custom PHP binaries that include all required extensions.
+</Note>
+
+### System Requirements
+- **OS**: Linux, macOS, or Windows
+- **RAM**: Minimum 2GB (4GB+ recommended)
+- **PHP**: 8.2 or newer (custom binaries recommended)
+- **Disk Space**: At least 1GB for server and worlds
+
+## Method 1: Using Pre-built PHAR (Recommended)
+
+This is the easiest method for most users.
+
+<Steps>
+  <Step title="Download PHP Binary">
+    Download a pre-built PHP binary from [pmmp/PHP-Binaries](https://github.com/pmmp/PHP-Binaries/releases)
+    
+    Choose the appropriate binary for your platform:
+    - Linux (x86_64)
+    - Windows (x86_64)
+    - macOS (x86_64 or ARM64)
+  </Step>
+  
+  <Step title="Download PocketMine-MP">
+    Download the latest `PocketMine-MP.phar` from [GitHub Releases](https://github.com/pmmp/PocketMine-MP/releases/latest)
+  </Step>
+  
+  <Step title="Extract and Setup">
+    Extract the PHP binary and place `PocketMine-MP.phar` in the same directory
+    
+    Your directory structure should look like:
+    ```
+    pocketmine/
+    ├── bin/
+    │   └── php7/
+    │       └── bin/
+    │           └── php
+    ├── PocketMine-MP.phar
+    └── start.sh (or start.cmd for Windows)
+    ```
+  </Step>
+  
+  <Step title="Run the Server">
+    Use the provided start script:
+    
+    <CodeGroup>
+    ```bash Linux/macOS
+    ./start.sh
+    ```
+    
+    ```cmd Windows
+    start.cmd
+    ```
+    </CodeGroup>
+    
+    Or run directly:
+    
+    <CodeGroup>
+    ```bash Linux/macOS
+    ./bin/php7/bin/php PocketMine-MP.phar
+    ```
+    
+    ```cmd Windows
+    bin\php\php.exe PocketMine-MP.phar
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+### Using the Start Script
+
+The `start.sh` script provides additional features:
+
+```bash
+# Basic usage
+./start.sh
+
+# Specify custom PHP binary
+./start.sh -p /path/to/php
+
+# Specify custom PocketMine-MP.phar
+./start.sh -f /path/to/PocketMine-MP.phar
+
+# Enable auto-restart on crash
+./start.sh -l
+```
+
+<Info>
+  The `-l` flag enables loop mode, which automatically restarts the server if it crashes. To exit loop mode, press `Ctrl+C` during the 5-second restart countdown.
+</Info>
+
+## Method 2: Docker
+
+See the [Docker Setup Guide](/docker) for detailed instructions on running PocketMine-MP in a container.
+
+Quick start:
+
+```bash
+mkdir -p data plugins
+sudo chown -R 1000:1000 data plugins
+docker run -it -p 19132:19132/udp \
+  -v $PWD/data:/data \
+  -v $PWD/plugins:/plugins \
+  ghcr.io/pmmp/pocketmine-mp
+```
+
+## Method 3: Building from Source
+
+For developers and contributors who want to build PocketMine-MP from source.
+
+### Pre-requisites
+- A bash shell (Git Bash for Windows)
+- `git` command-line tool
+- PHP 8.2 or newer
+- `composer` package manager
+
+<Steps>
+  <Step title="Clone the Repository">
+    ```bash
+    git clone https://github.com/pmmp/PocketMine-MP.git
+    cd PocketMine-MP
+    ```
+  </Step>
+  
+  <Step title="Install Dependencies">
+    ```bash
+    composer install
+    ```
+  </Step>
+  
+  <Step title="Run from Source">
+    Run directly from source code:
+    
+    ```bash
+    php src/PocketMine.php
+    ```
+  </Step>
+</Steps>
+
+### Building a PHAR
+
+To create a distributable `PocketMine-MP.phar`:
+
+```bash
+# For production builds
+composer install --no-dev --classmap-authoritative
+composer make-server
+```
+
+This creates `PocketMine-MP.phar` in the current directory.
+
+<Tip>
+  Use `--no-dev --classmap-authoritative` flags for production builds to reduce file size and improve autoloading performance.
+</Tip>
+
+### Custom Build Options
+
+```bash
+# Specify output filename
+composer make-server -- --out MyServer.phar
+
+# Development build (includes dev dependencies)
+composer install
+composer make-server
+```
+
+## Custom PHP Binaries
+
+<Warning>
+  Standard PHP installations may not include all required extensions for PocketMine-MP. Using PMMP's custom PHP binaries is strongly recommended.
+</Warning>
+
+PocketMine-MP requires several non-standard PHP extensions:
+- `pthreads` (for multi-threading)
+- `chunkutils2` (for chunk handling)
+- `igbinary` (for data serialization)
+- `leveldb` (for world storage)
+- `crypto` (for encryption)
+- And more...
+
+### Building Custom PHP
+
+To build your own PHP binary with all required extensions:
+
+```bash
+# Clone compile scripts (included as submodule)
+git submodule update --init build/php
+
+# Run compile script
+cd build/php
+./compile.sh -t linux64 -j 4
+```
+
+Pre-built binaries are available at [pmmp/PHP-Binaries](https://github.com/pmmp/PHP-Binaries/releases).
+
+## First Run Setup
+
+On first run, PocketMine-MP will:
+
+1. Generate configuration files:
+   - `server.properties` - Basic server configuration
+   - `pocketmine.yml` - Advanced PocketMine-MP settings
+   - `ops.txt` - Operator permissions
+   - `white-list.txt` - Whitelist (if enabled)
+
+2. Create directory structure:
+   ```
+   data/
+   ├── players/      # Player data
+   ├── worlds/       # World files
+   ├── plugins/      # Plugin directory
+   └── plugin_data/  # Plugin configuration
+   ```
+
+3. Generate default world
+
+4. Start accepting connections on port 19132
+
+<Info>
+  The setup wizard will guide you through initial configuration. You can also run with `--no-wizard` to skip the wizard and use default settings.
+</Info>
+
+## Verifying Installation
+
+Once started, you should see:
+
+```
+[Server thread/INFO]: Starting Minecraft: BE server version vX.XX.XX
+[Server thread/INFO]: Loading server properties...
+[Server thread/INFO]: Starting GS4 status listener
+[Server thread/INFO]: Setting query port to 19132
+[Server thread/INFO]: Server started on 0.0.0.0:19132
+[Server thread/INFO]: Done (X.XXXs)! For help, type "help" or "?"
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Start Guide" icon="rocket" href="/quickstart">
+    Learn how to configure and use your server
+  </Card>
+  <Card title="Server Configuration" icon="gear">
+    Customize server.properties and pocketmine.yml
+  </Card>
+  <Card title="Adding Plugins" icon="puzzle-piece">
+    Install plugins from Poggit
+  </Card>
+  <Card title="Docker Guide" icon="docker" href="/docker">
+    Advanced Docker setup and usage
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+### Port Already in Use
+
+If you see "Failed to bind to port", another service is using port 19132.
+
+```bash
+# Find what's using the port (Linux/macOS)
+sudo lsof -i :19132
+
+# Change the port in server.properties
+server-port=19133
+```
+
+### PHP Extension Missing
+
+If you see extension errors, you're likely not using a PMMP PHP binary.
+
+<Tip>
+  Download pre-built PHP binaries from [pmmp/PHP-Binaries](https://github.com/pmmp/PHP-Binaries/releases) to avoid extension issues.
+</Tip>
+
+### Permission Denied (Linux/macOS)
+
+Make the start script executable:
+
+```bash
+chmod +x start.sh
+```

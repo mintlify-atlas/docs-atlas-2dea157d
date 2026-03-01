@@ -1,0 +1,593 @@
+---
+title: Updating PocketMine-MP
+description: Safely update your PocketMine-MP server to the latest version
+---
+
+Keeping your PocketMine-MP server updated ensures you have the latest features, performance improvements, bug fixes, and security patches.
+
+## Before Updating
+
+<Warning>
+Always backup your server before updating. Updates can occasionally cause issues with plugins or worlds.
+</Warning>
+
+### Pre-update Checklist
+
+<Steps>
+
+<Step title="Backup everything">
+```bash
+# Backup critical files and directories
+cp -r worlds/ worlds.backup/
+cp -r plugins/ plugins.backup/
+cp server.properties server.properties.backup
+cp pocketmine.yml pocketmine.yml.backup
+cp -r plugin_data/ plugin_data.backup/
+```
+</Step>
+
+<Step title="Check release notes">
+- Visit [GitHub Releases](https://github.com/pmmp/PocketMine-MP/releases)
+- Read changelog for breaking changes
+- Note API version changes
+- Review migration guides
+</Step>
+
+<Step title="Verify plugin compatibility">
+- Check if your plugins support the new version
+- Visit [Poggit](https://poggit.pmmp.io/) for plugin updates
+- Contact plugin developers if unsure
+</Step>
+
+<Step title="Schedule downtime">
+- Notify players in advance
+- Choose low-traffic time
+- Plan for potential rollback time
+</Step>
+
+<Step title="Test on development server">
+If possible, test the update on a separate server first
+</Step>
+
+</Steps>
+
+## Update Methods
+
+### Method 1: Automatic Update (Recommended)
+
+PocketMine-MP can update itself automatically:
+
+<Tabs>
+
+<Tab title="Using Update Command">
+```bash
+# In server console
+stop
+
+# Start server with update flag
+./start.sh --update
+
+# Or on Windows
+start.cmd --update
+```
+</Tab>
+
+<Tab title="Automatic Notification">
+With auto-updater enabled:
+
+```yaml pocketmine.yml
+auto-updater:
+  enabled: true
+  on-update:
+    warn-console: true
+  preferred-channel: stable
+  suggest-channels: true
+  host: update.pmmp.io
+```
+
+The server will notify you when updates are available and can update on restart.
+</Tab>
+
+</Tabs>
+
+<Note>
+Automatic updates only work for point releases (e.g., 5.0.0 → 5.0.1). Major version updates require manual installation.
+</Note>
+
+### Method 2: Manual Update
+
+<Tabs>
+
+<Tab title="Linux/macOS">
+<Steps>
+
+<Step title="Stop the server">
+```bash
+stop
+# Or press Ctrl+C
+```
+</Step>
+
+<Step title="Download new version">
+```bash
+cd /path/to/server
+
+# Download latest stable release
+wget https://github.com/pmmp/PocketMine-MP/releases/download/VERSION/PocketMine-MP.phar
+
+# Or use curl
+curl -L -o PocketMine-MP.phar https://github.com/pmmp/PocketMine-MP/releases/download/VERSION/PocketMine-MP.phar
+```
+</Step>
+
+<Step title="Replace old version">
+```bash
+# Backup old version
+mv PocketMine-MP.phar PocketMine-MP.phar.old
+
+# Move new version
+mv PocketMine-MP.phar.new PocketMine-MP.phar
+
+# Set permissions
+chmod +x PocketMine-MP.phar
+```
+</Step>
+
+<Step title="Start server">
+```bash
+./start.sh
+```
+</Step>
+
+</Steps>
+</Tab>
+
+<Tab title="Windows">
+<Steps>
+
+<Step title="Stop the server">
+Use `stop` command or close console window
+</Step>
+
+<Step title="Download new version">
+1. Visit [PocketMine-MP Releases](https://github.com/pmmp/PocketMine-MP/releases)
+2. Download `PocketMine-MP.phar` from latest release
+3. Save to your server directory
+</Step>
+
+<Step title="Replace old version">
+1. Rename old `PocketMine-MP.phar` to `PocketMine-MP.phar.old`
+2. Rename new file to `PocketMine-MP.phar`
+</Step>
+
+<Step title="Start server">
+Double-click `start.cmd` or run it from command prompt
+</Step>
+
+</Steps>
+</Tab>
+
+<Tab title="Using Installation Script">
+```bash
+# Download and run installer
+curl -sL https://get.pmmp.io | bash -s -
+
+# Follow prompts to update
+```
+
+The installer detects existing installations and offers to update them.
+</Tab>
+
+</Tabs>
+
+### Method 3: Docker Update
+
+If using the official Docker image:
+
+```bash
+# Pull latest image
+docker pull ghcr.io/pmmp/pocketmine-mp:latest
+
+# Stop container
+docker stop pocketmine
+
+# Remove old container
+docker rm pocketmine
+
+# Start with new image
+docker run -d \
+  --name pocketmine \
+  -p 19132:19132/udp \
+  -v $(pwd)/data:/data \
+  ghcr.io/pmmp/pocketmine-mp:latest
+```
+
+## After Updating
+
+<Steps>
+
+<Step title="Verify server starts">
+Check console for errors during startup
+</Step>
+
+<Step title="Check version">
+```bash
+version
+# Output should show new version
+```
+</Step>
+
+<Step title="Test core functionality">
+- Join the server
+- Check world loading
+- Test commands
+- Verify plugins work
+</Step>
+
+<Step title="Update plugins">
+```bash
+# Check for incompatible plugins
+plugins
+
+# Update plugins from Poggit or plugin sources
+# Replace outdated .phar files
+```
+</Step>
+
+<Step title="Monitor for issues">
+- Watch console for errors
+- Check server.log
+- Monitor performance (TPS, memory)
+- Listen to player feedback
+</Step>
+
+<Step title="Remove old backup (optional)">
+```bash
+# After confirming everything works
+rm -rf worlds.backup/
+rm -rf plugins.backup/
+rm PocketMine-MP.phar.old
+```
+</Step>
+
+</Steps>
+
+## Understanding Release Channels
+
+PocketMine-MP uses different release channels:
+
+<CardGroup cols={2}>
+
+<Card title="Stable" icon="check">
+**Recommended for production**
+
+- Thoroughly tested
+- No known major bugs
+- Suitable for public servers
+- Updated less frequently
+</Card>
+
+<Card title="Beta" icon="flask">
+**For testing upcoming features**
+
+- New features
+- Less tested
+- May have bugs
+- For adventurous admins
+</Card>
+
+<Card title="Alpha" icon="triangle-exclamation">
+**Early testing versions**
+
+- Very new features
+- Likely has bugs
+- Breaking changes possible
+- For developers/testers
+</Card>
+
+<Card title="Development" icon="code">
+**Bleeding edge**
+
+- Latest commits
+- Unstable
+- Can break anytime
+- For development only
+</Card>
+
+</CardGroup>
+
+### Configure Release Channel
+
+```yaml pocketmine.yml
+auto-updater:
+  enabled: true
+  # Choose: stable, beta, alpha, development
+  preferred-channel: stable
+  suggest-channels: true
+```
+
+<Warning>
+Development builds require explicit opt-in:
+
+```yaml
+settings:
+  enable-dev-builds: true
+```
+
+Use development builds only for testing, never for production servers.
+</Warning>
+
+## Major Version Updates
+
+Major version updates (e.g., 4.x → 5.x) often include:
+
+- Breaking API changes
+- Plugin incompatibility
+- Configuration changes
+- World format updates
+
+### Major Update Process
+
+<Steps>
+
+<Step title="Research breaking changes">
+- Read migration guides
+- Review release notes thoroughly
+- Check GitHub discussions
+</Step>
+
+<Step title="Update all plugins first">
+- Get versions compatible with new API
+- Remove plugins without updates
+- Find alternatives if needed
+</Step>
+
+<Step title="Test extensively">
+- Set up test server with backup data
+- Run full update process
+- Test for several days
+</Step>
+
+<Step title="Plan migration day">
+- Schedule maintenance window
+- Notify players well in advance
+- Prepare rollback plan
+</Step>
+
+<Step title="Perform update">
+Follow manual update method above
+</Step>
+
+<Step title="Monitor closely">
+Watch for issues for first few days
+</Step>
+
+</Steps>
+
+<Info>
+Major updates are released infrequently. Most updates are minor versions with backward compatibility.
+</Info>
+
+## Rollback Procedure
+
+If the update causes critical issues:
+
+<Steps>
+
+<Step title="Stop the server">
+```bash
+stop
+```
+</Step>
+
+<Step title="Restore old version">
+```bash
+# Restore PocketMine-MP
+mv PocketMine-MP.phar PocketMine-MP.phar.broken
+mv PocketMine-MP.phar.old PocketMine-MP.phar
+```
+</Step>
+
+<Step title="Restore backups">
+```bash
+# Only if worlds were corrupted
+rm -rf worlds/
+mv worlds.backup/ worlds/
+
+# Restore plugins if needed
+rm -rf plugins/
+mv plugins.backup/ plugins/
+```
+</Step>
+
+<Step title="Restart server">
+```bash
+./start.sh
+```
+</Step>
+
+<Step title="Report issues">
+- Create GitHub issue with details
+- Include crash dumps
+- Describe what went wrong
+</Step>
+
+</Steps>
+
+<Note>
+Rollback is why backups are critical. Always backup before updating.
+</Note>
+
+## Update Best Practices
+
+<AccordionGroup>
+
+<Accordion title="Keep regular update schedule">
+- Check for updates weekly
+- Subscribe to GitHub release notifications
+- Join Discord for announcements
+- Read changelogs regularly
+</Accordion>
+
+<Accordion title="Don't skip versions">
+- Update sequentially through versions
+- Don't jump multiple major versions
+- Read all changelogs between versions
+</Accordion>
+
+<Accordion title="Maintain multiple backups">
+- Keep multiple backup generations
+- Store backups off-server
+- Test backup restoration occasionally
+</Accordion>
+
+<Accordion title="Document your configuration">
+- Keep notes on custom settings
+- Document plugin configurations
+- Track what you've changed from defaults
+</Accordion>
+
+<Accordion title="Test updates in development first">
+- Clone production to test server
+- Update test server first
+- Verify everything works before production update
+</Accordion>
+
+</AccordionGroup>
+
+## Automated Update Script
+
+Example update script for Linux servers:
+
+```bash update.sh
+#!/bin/bash
+SERVER_DIR="/path/to/server"
+BACKUP_DIR="/path/to/backups"
+DATE=$(date +%Y-%m-%d_%H-%M-%S)
+
+# Stop server (if using systemd)
+sudo systemctl stop pocketmine
+
+# Backup
+mkdir -p "$BACKUP_DIR/$DATE"
+cp -r "$SERVER_DIR/worlds" "$BACKUP_DIR/$DATE/"
+cp -r "$SERVER_DIR/plugins" "$BACKUP_DIR/$DATE/"
+cp "$SERVER_DIR/server.properties" "$BACKUP_DIR/$DATE/"
+cp "$SERVER_DIR/pocketmine.yml" "$BACKUP_DIR/$DATE/"
+cp "$SERVER_DIR/PocketMine-MP.phar" "$BACKUP_DIR/$DATE/"
+
+# Download latest
+cd "$SERVER_DIR"
+wget -O PocketMine-MP.phar.new https://github.com/pmmp/PocketMine-MP/releases/latest/download/PocketMine-MP.phar
+
+# Replace
+mv PocketMine-MP.phar PocketMine-MP.phar.old
+mv PocketMine-MP.phar.new PocketMine-MP.phar
+chmod +x PocketMine-MP.phar
+
+# Start server
+sudo systemctl start pocketmine
+
+# Check status
+sleep 5
+sudo systemctl status pocketmine
+
+echo "Update complete! Backup stored in $BACKUP_DIR/$DATE"
+```
+
+<Warning>
+Test automated scripts thoroughly before using in production.
+</Warning>
+
+## Getting Update Notifications
+
+<Tabs>
+
+<Tab title="GitHub">
+1. Go to [PocketMine-MP repository](https://github.com/pmmp/PocketMine-MP)
+2. Click "Watch" → "Custom" → "Releases"
+3. Receive email notifications for new releases
+</Tab>
+
+<Tab title="Discord">
+1. Join [PocketMine-MP Discord](https://discord.gg/bmSAZBG)
+2. Follow #announcements channel
+3. Enable notifications for that channel
+</Tab>
+
+<Tab title="RSS/Atom Feed">
+Subscribe to release feed:
+```
+https://github.com/pmmp/PocketMine-MP/releases.atom
+```
+</Tab>
+
+</Tabs>
+
+## Frequently Asked Questions
+
+<AccordionGroup>
+
+<Accordion title="Do I need to update plugins when updating server?">
+Usually yes, especially for major version updates. Check plugin compatibility:
+
+- Visit plugin pages on Poggit
+- Read plugin update notes
+- Test plugins after server update
+- Replace incompatible plugins
+</Accordion>
+
+<Accordion title="Will updating reset my configuration?">
+No. `server.properties` and `pocketmine.yml` are preserved during updates. However:
+
+- New options may be added with defaults
+- Deprecated options may be removed
+- Some values may change behavior
+- Always review changelogs
+</Accordion>
+
+<Accordion title="Can I downgrade if needed?">
+Yes, with caveats:
+
+- Restore old PocketMine-MP.phar
+- May need to restore world backups
+- Some new features may break
+- Data created in new version may not work
+- Always use pre-update backups
+</Accordion>
+
+<Accordion title="How often should I update?">
+**For stable channel:**
+- Update for security patches immediately
+- Update for bug fixes when convenient
+- Update for new features as desired
+- Generally, update monthly or when notified
+
+**Check for updates:** Weekly
+</Accordion>
+
+<Accordion title="What if my hosting doesn't support updates?">
+Some options:
+
+- Contact hosting support for assistance
+- Request they enable auto-updates
+- Use hosting control panel update feature
+- Consider switching to better hosting
+- Migrate to VPS for full control
+</Accordion>
+
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Configuration" icon="gear" href="/admin/configuration">
+Optimize settings after updating
+</Card>
+
+<Card title="Troubleshooting" icon="wrench" href="/admin/troubleshooting">
+Resolve issues after updates
+</Card>
+
+</CardGroup>

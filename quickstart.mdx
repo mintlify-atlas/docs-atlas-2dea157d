@@ -1,80 +1,475 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start Guide
+description: Get your PocketMine-MP server running and create your first plugin
 ---
 
-## Get started in three steps
+# Quick Start Guide
 
-Get your documentation site running locally and make your first customization.
+This guide will help you get your PocketMine-MP server running and create your first simple plugin.
 
-### Step 1: Set up your local environment
+## Prerequisites
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+<Info>
+  Make sure you've completed the [installation process](/installation) before proceeding with this guide.
+</Info>
+
+## Starting Your Server
+
+<Steps>
+  <Step title="Navigate to Server Directory">
+    Open a terminal and navigate to your PocketMine-MP installation directory:
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    ```bash
+    cd /path/to/pocketmine
+    ```
+  </Step>
+  
+  <Step title="Start the Server">
+    Run the start script:
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+    <CodeGroup>
+    ```bash Linux/macOS
+    ./start.sh
+    ```
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    ```cmd Windows
+    start.cmd
+    ```
+    
+    ```bash Direct PHP
+    php PocketMine-MP.phar
+    ```
+    </CodeGroup>
+  </Step>
+  
+  <Step title="Complete Setup Wizard">
+    On first run, you'll see the setup wizard:
+    
+    ```
+    [*] PocketMine-MP set-up wizard
+    [*] Please select a language:
+    ```
+    
+    Follow the prompts to configure:
+    - Language
+    - Server name
+    - Port (default: 19132)
+    - Maximum players
+    - Game mode (Survival, Creative, Adventure)
+    - Generate default world
+  </Step>
+  
+  <Step title="Wait for Server to Start">
+    You'll see:
+    
+    ```
+    [Server thread/INFO]: Done (X.XXXs)! For help, type "help" or "?"
+    ```
+    
+    Your server is now running!
+  </Step>
+</Steps>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+## Connecting to Your Server
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+<Steps>
+  <Step title="Open Minecraft Bedrock Edition">
+    Launch Minecraft on your device (Windows 10/11, Android, iOS, Xbox, PlayStation, or Switch)
+  </Step>
+  
+  <Step title="Go to Servers Tab">
+    Navigate to the "Play" menu, then select the "Servers" tab
+  </Step>
+  
+  <Step title="Add Server">
+    Click "Add Server" and enter:
+    - **Server Name**: Your choice
+    - **Server Address**: `localhost` (if on same machine) or your server's IP
+    - **Port**: `19132` (default)
+  </Step>
+  
+  <Step title="Join Server">
+    Click on your server to join!
+  </Step>
+</Steps>
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  If connecting from another device, make sure port 19132 is open in your firewall and use your server's local IP address (e.g., `192.168.1.100`).
 </Note>
+
+## Basic Server Commands
+
+Use these commands in the server console:
+
+```bash
+# Stop the server
+stop
+
+# List online players
+list
+
+# Give a player operator permissions
+op <player_name>
+
+# Remove operator permissions
+deop <player_name>
+
+# Kick a player
+kick <player_name> [reason]
+
+# Ban a player
+ban <player_name> [reason]
+
+# Reload the server (not recommended during production)
+reload
+
+# View server status
+status
+
+# Save all worlds
+save-all
+```
+
+## Server Configuration
+
+### server.properties
+
+Key settings in `server.properties`:
+
+```properties
+# Server name shown in server list
+server-name=PocketMine-MP Server
+
+# Game mode (0=Survival, 1=Creative, 2=Adventure, 3=Spectator)
+gamemode=0
+
+# Difficulty (0=Peaceful, 1=Easy, 2=Normal, 3=Hard)
+difficulty=1
+
+# Maximum players
+max-players=20
+
+# Server port
+server-port=19132
+
+# Enable whitelist
+white-list=off
+
+# View distance
+view-distance=8
+```
+
+### pocketmine.yml
+
+Advanced settings in `pocketmine.yml`:
+
+```yaml
+settings:
+  # Server language
+  force-language: false
+  
+  # Shutdown message
+  shutdown-message: "Server closed"
+  
+  # Enable plugin profiling
+  enable-profiling: false
+  
+  # AsyncTask workers (set to CPU cores)
+  async-workers: auto
+
+memory:
+  # Global memory limit (MB, 0 to disable)
+  global-limit: 0
+  
+  # Main thread hard memory limit (MB)
+  main-hard-limit: 1024
+```
+
+## Creating Your First Plugin
+
+Let's create a simple plugin that welcomes players when they join.
+
+### Plugin Structure
+
+PocketMine-MP plugins can be:
+- **Folder plugins** (source code in folders)
+- **PHAR plugins** (compiled archives)
+- **Script plugins** (single PHP files)
+
+<Tip>
+  For development, use folder plugins. For distribution, compile to PHAR using DevTools.
+</Tip>
+
+### Script Plugin Example
+
+Create a simple script plugin to get started quickly:
+
+<Steps>
+  <Step title="Create Plugin File">
+    Navigate to your plugins directory and create `WelcomePlugin.php`:
+    
+    ```bash
+    cd plugins
+    touch WelcomePlugin.php
+    ```
+  </Step>
+  
+  <Step title="Write Plugin Code">
+    Edit `WelcomePlugin.php`:
+    
+    ```php WelcomePlugin.php
+    <?php
+    
+    namespace MyPlugins\WelcomePlugin;
+    
+    use pocketmine\event\Listener;
+    use pocketmine\event\player\PlayerJoinEvent;
+    use pocketmine\plugin\PluginBase;
+    use pocketmine\utils\TextFormat;
+    
+    /**
+     * @main MyPlugins\WelcomePlugin\Main
+     * @api 5.0.0
+     * @name WelcomePlugin
+     * @version 1.0.0
+     */
+    class Main extends PluginBase implements Listener {
+        
+        public function onEnable(): void {
+            $this->getServer()->getPluginManager()->registerEvents($this, $this);
+            $this->getLogger()->info("WelcomePlugin enabled!");
+        }
+        
+        public function onPlayerJoin(PlayerJoinEvent $event): void {
+            $player = $event->getPlayer();
+            $player->sendMessage(
+                TextFormat::GREEN . "Welcome to the server, " . 
+                $player->getName() . "!"
+            );
+            
+            $this->getLogger()->info(
+                $player->getName() . " joined the server"
+            );
+        }
+    }
+    ```
+  </Step>
+  
+  <Step title="Restart Server">
+    Restart your server or use the `reload` command:
+    
+    ```bash
+    reload
+    ```
+    
+    You should see:
+    ```
+    [Server thread/INFO]: [WelcomePlugin] WelcomePlugin enabled!
+    ```
+  </Step>
+  
+  <Step title="Test the Plugin">
+    Join the server with a player. You should see a green welcome message!
+  </Step>
+</Steps>
+
+### Understanding the Plugin Code
+
+Let's break down the key components:
+
+#### Plugin Metadata (DocBlock)
+
+```php
+/**
+ * @main MyPlugins\WelcomePlugin\Main
+ * @api 5.0.0
+ * @name WelcomePlugin
+ * @version 1.0.0
+ */
+```
+
+- `@main`: Fully qualified class name of your main class
+- `@api`: Minimum API version required
+- `@name`: Plugin name (optional for script plugins)
+- `@version`: Plugin version (optional for script plugins)
+
+#### Plugin Base Class
+
+```php
+class Main extends PluginBase implements Listener
+```
+
+- Extend `PluginBase` for basic plugin functionality
+- Implement `Listener` to listen to events
+
+#### Event Registration
+
+```php
+public function onEnable(): void {
+    $this->getServer()->getPluginManager()->registerEvents($this, $this);
+}
+```
+
+- `onEnable()` is called when the plugin is enabled
+- Register the plugin as an event listener
+
+#### Event Handling
+
+```php
+public function onPlayerJoin(PlayerJoinEvent $event): void {
+    $player = $event->getPlayer();
+    $player->sendMessage("Welcome!");
+}
+```
+
+- Method name doesn't matter for event handlers
+- Type hint the specific event class you want to handle
+- Access event data and perform actions
+
+## Folder Plugin Example
+
+For more complex plugins, use the folder structure:
+
+```
+plugins/
+└── MyPlugin/
+    ├── plugin.yml
+    ├── src/
+    │   └── MyPlugins/
+    │       └── MyPlugin/
+    │           └── Main.php
+    └── resources/
+        └── config.yml
+```
+
+### plugin.yml
+
+```yaml plugin.yml
+name: MyPlugin
+main: MyPlugins\MyPlugin\Main
+version: 1.0.0
+api: [5.0.0]
+author: YourName
+description: My awesome plugin
+
+permissions:
+  myplugin.command:
+    description: Allow using the plugin command
+    default: true
+
+commands:
+  mycommand:
+    description: Test command
+    usage: "/mycommand"
+    permission: myplugin.command
+```
+
+### Main.php
+
+```php src/MyPlugins/MyPlugin/Main.php
+<?php
+
+namespace MyPlugins\MyPlugin;
+
+use pocketmine\plugin\PluginBase;
+use pocketmine\command\Command;
+use pocketmine\command\CommandSender;
+
+class Main extends PluginBase {
+    
+    public function onEnable(): void {
+        $this->saveDefaultConfig();
+        $this->getLogger()->info("MyPlugin enabled!");
+    }
+    
+    public function onCommand(
+        CommandSender $sender, 
+        Command $command, 
+        string $label, 
+        array $args
+    ): bool {
+        if ($command->getName() === "mycommand") {
+            $sender->sendMessage("Hello from MyPlugin!");
+            return true;
+        }
+        return false;
+    }
+}
+```
+
+## Installing Plugins from Poggit
+
+<Steps>
+  <Step title="Browse Poggit">
+    Visit [poggit.pmmp.io/plugins](https://poggit.pmmp.io/plugins)
+  </Step>
+  
+  <Step title="Download Plugin">
+    Find a plugin and download the `.phar` file
+  </Step>
+  
+  <Step title="Install Plugin">
+    Place the `.phar` file in your `plugins/` directory:
+    
+    ```bash
+    cp DownloadedPlugin.phar /path/to/pocketmine/plugins/
+    ```
+  </Step>
+  
+  <Step title="Restart Server">
+    Restart the server to load the plugin:
+    
+    ```bash
+    stop
+    ./start.sh
+    ```
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Developer Documentation" icon="book" href="https://devdoc.pmmp.io">
+    Learn advanced plugin development
+  </Card>
+  <Card title="API Documentation" icon="code" href="https://apidoc.pmmp.io">
+    Browse the complete API reference
+  </Card>
+  <Card title="Example Plugin" icon="github" href="https://github.com/pmmp/ExamplePlugin">
+    Study a complete example plugin
+  </Card>
+  <Card title="DevTools" icon="wrench" href="https://github.com/pmmp/DevTools">
+    Build and package plugins
+  </Card>
+</CardGroup>
+
+## Common Issues
+
+### Plugin Not Loading
+
+<Warning>
+  Check the server console for errors. Common issues:
+  - Wrong API version in plugin metadata
+  - Syntax errors in PHP code
+  - Missing dependencies
+  - Incorrect file permissions
+</Warning>
+
+### Events Not Firing
+
+Make sure you:
+1. Implement the `Listener` interface
+2. Register events in `onEnable()`
+3. Type-hint the correct event class
+
+### Cannot Connect to Server
+
+Check:
+- Server is running (no errors in console)
+- Using correct IP and port
+- Firewall allows UDP traffic on port 19132
+- Server and client are on compatible versions
+
+<Tip>
+  Join the [PocketMine-MP Discord](https://discord.gg/bmSAZBG) for help from the community!
+</Tip>

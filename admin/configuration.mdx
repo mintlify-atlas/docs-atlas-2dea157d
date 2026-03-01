@@ -1,0 +1,389 @@
+---
+title: Server Configuration
+description: Configure your PocketMine-MP server using server.properties and pocketmine.yml
+---
+
+PocketMine-MP uses two main configuration files to control server behavior: `server.properties` and `pocketmine.yml`. These files are created automatically when you first start the server.
+
+## server.properties
+
+The `server.properties` file contains basic server settings compatible with the standard Minecraft server format.
+
+### Basic Settings
+
+<CodeGroup>
+
+```properties server.properties
+# Server name shown in server list
+motd=PocketMine-MP Server
+
+# Server port (default: 19132)
+server-port=19132
+server-portv6=19133
+
+# Enable IPv6 support
+enable-ipv6=true
+
+# Maximum number of players
+max-players=20
+
+# Enable server query for server lists
+enable-query=true
+```
+
+</CodeGroup>
+
+<Note>
+Changes to `server.properties` require a server restart to take effect.
+</Note>
+
+### Gameplay Settings
+
+#### Game Mode
+
+```properties
+# Default game mode (SURVIVAL, CREATIVE, ADVENTURE, SPECTATOR)
+gamemode=SURVIVAL
+
+# Force players to use the server's game mode
+force-gamemode=false
+
+# Enable hardcore mode (permadeath)
+hardcore=false
+
+# Enable PvP
+pvp=true
+
+# Difficulty (0=peaceful, 1=easy, 2=normal, 3=hard)
+difficulty=2
+```
+
+#### World Settings
+
+```properties
+# Default world name
+level-name=world
+
+# World seed (leave empty for random)
+level-seed=
+
+# Generator type (DEFAULT, FLAT, VOID)
+level-type=DEFAULT
+
+# Generator settings (for custom generators)
+generator-settings=
+
+# Auto-save interval (enabled by default)
+auto-save=true
+```
+
+#### View Distance
+
+```properties
+# Maximum render distance in chunks (4-32)
+view-distance=8
+```
+
+<Warning>
+Higher view distances significantly increase RAM usage and CPU load. Start with lower values and increase gradually.
+</Warning>
+
+### Security Settings
+
+#### Whitelist
+
+```properties
+# Enable whitelist
+white-list=false
+```
+
+When enabled, only players in `whitelist.json` can join. Manage the whitelist using:
+
+```bash
+# Add player
+whitelist add <player_name>
+
+# Remove player
+whitelist remove <player_name>
+
+# Reload whitelist
+whitelist reload
+```
+
+#### Xbox Live Authentication
+
+```properties
+# Require Xbox Live authentication
+xbox-auth=true
+```
+
+<Warning>
+Disabling `xbox-auth` allows non-authenticated players to join, which poses security risks. Only disable if you understand the implications.
+</Warning>
+
+### Network Settings
+
+```properties
+# Server IP (leave empty for automatic)
+server-ip=
+server-ipv6=
+
+# Language code
+language=eng
+```
+
+## pocketmine.yml
+
+The `pocketmine.yml` file contains advanced PocketMine-MP specific settings that control performance, memory management, and server behavior.
+
+### Settings Section
+
+<CodeGroup>
+
+```yaml pocketmine.yml
+settings:
+  # Force server language translation
+  force-language: false
+  
+  # Shutdown message
+  shutdown-message: "Server closed"
+  
+  # Show plugins in query
+  query-plugins: true
+  
+  # Enable performance profiling
+  enable-profiling: false
+  profile-report-trigger: 20
+  
+  # Number of async worker threads (auto = CPU cores - 2)
+  async-workers: auto
+  
+  # Allow development builds
+  enable-dev-builds: false
+```
+
+</CodeGroup>
+
+### Memory Configuration
+
+See the [Performance](/admin/performance) page for detailed memory settings.
+
+```yaml
+memory:
+  # Global soft memory limit in MB (0 = disabled)
+  global-limit: 0
+  
+  # Main thread soft limit in MB
+  main-limit: 0
+  
+  # Main thread hard limit in MB (stops server)
+  main-hard-limit: 1024
+  
+  # AsyncWorker hard limit per worker in MB
+  async-worker-hard-limit: 256
+```
+
+### Network Configuration
+
+```yaml
+network:
+  # Packet compression threshold in bytes
+  batch-threshold: 256
+  
+  # Compression level (0-9, higher = more CPU, less bandwidth)
+  compression-level: 6
+  
+  # Use async compression
+  async-compression: false
+  async-compression-threshold: 10000
+  
+  # Maximum MTU size in bytes
+  max-mtu-size: 1492
+  
+  # Enable network encryption (recommended)
+  enable-encryption: true
+  
+  # UPnP port forwarding (experimental)
+  upnp-forwarding: false
+```
+
+<Info>
+Disabling encryption (`enable-encryption: false`) makes your server vulnerable to session hijacking. Keep this enabled unless you have specific reasons not to.
+</Info>
+
+### Player Settings
+
+```yaml
+player:
+  # Save player data
+  save-player-data: true
+  
+  # Verify Xbox Live XUID
+  verify-xuid: true
+```
+
+### Chunk Settings
+
+```yaml
+chunk-sending:
+  # Chunks sent per tick
+  per-tick: 4
+  
+  # Spawn radius in chunks
+  spawn-radius: 4
+
+chunk-ticking:
+  # Chunk tick radius around players
+  tick-radius: 3
+  
+  # Random tick speed
+  blocks-per-subchunk-per-tick: 3
+  
+  # Disable specific block ticking
+  disable-block-ticking:
+    # - grass
+    # - ice
+
+chunk-generation:
+  # Chunk population queue size
+  population-queue-size: 32
+```
+
+### World Configuration
+
+```yaml
+level-settings:
+  # Default world format (leveldb, mcregion)
+  default-format: leveldb
+
+worlds:
+  # Configure additional worlds
+  # world:
+  #   seed: 404
+  #   generator: FLAT
+  #   preset: 2;bedrock,59xstone,3xdirt,grass;1
+```
+
+### Auto-save Configuration
+
+```yaml
+ticks-per:
+  # Auto-save interval in ticks (6000 = 5 minutes)
+  autosave: 6000
+```
+
+### Command Aliases
+
+```yaml
+aliases:
+  # Remove command alias
+  # stop: []
+  
+  # Add custom aliases
+  # showtheversion: [version]
+  # savestop: [save-all, stop]
+  
+  # Aliases with arguments
+  # giveadmin: [op $1]
+  # tpalias: [tp $1-]
+```
+
+### Auto-updater
+
+```yaml
+auto-updater:
+  enabled: true
+  on-update:
+    warn-console: true
+  # Release channel: development, alpha, beta, stable
+  preferred-channel: stable
+  suggest-channels: true
+  host: update.pmmp.io
+```
+
+### Crash Reporting
+
+```yaml
+auto-report:
+  enabled: true
+  send-code: true
+  send-settings: true
+  send-phpinfo: false
+  use-https: true
+  host: crash.pmmp.io
+```
+
+### Console Settings
+
+```yaml
+console:
+  # Accept console commands
+  enable-input: true
+  
+  # Show stats in console title
+  title-tick: true
+```
+
+### Timings
+
+```yaml
+timings:
+  # Timings report host
+  host: timings.pmmp.io
+```
+
+### Debug Settings
+
+```yaml
+debug:
+  # Debug level (1 = normal, 2+ = verbose)
+  level: 1
+```
+
+## Configuration Best Practices
+
+<AccordionGroup>
+
+<Accordion title="Start with defaults">
+Don't modify configuration values unless you understand what they do. Default settings work well for most servers.
+</Accordion>
+
+<Accordion title="Make incremental changes">
+Change one setting at a time and test the impact before making additional changes.
+</Accordion>
+
+<Accordion title="Keep backups">
+Backup configuration files before making changes so you can revert if needed.
+</Accordion>
+
+<Accordion title="Document your changes">
+Add comments in YAML files to document why you changed specific settings.
+</Accordion>
+
+</AccordionGroup>
+
+## Reloading Configuration
+
+Most `pocketmine.yml` changes require a server restart. Some settings can be reloaded with:
+
+```bash
+reload
+```
+
+<Warning>
+The `reload` command reloads plugins and some configurations, but not all settings. Server restart is recommended for configuration changes.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Performance Tuning" icon="gauge-high" href="/admin/performance">
+Optimize your server for better performance
+</Card>
+
+<Card title="Security" icon="shield" href="/admin/security">
+Secure your server against common threats
+</Card>
+
+</CardGroup>

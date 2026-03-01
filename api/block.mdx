@@ -1,0 +1,826 @@
+---
+title: 'Block API'
+description: 'Complete API reference for block manipulation and properties in PocketMine-MP'
+---
+
+## Overview
+
+The Block API provides comprehensive control over block types, states, properties, and interactions in PocketMine-MP.
+
+## Block Class
+
+The base class for all block types.
+
+**Namespace:** `pocketmine\block\Block`
+
+### Core Methods
+
+#### getTypeId
+
+```php
+public function getTypeId() : int
+```
+
+Returns the type ID that identifies this type of block.
+
+<ResponseField name="return" type="int">
+  The block type ID
+</ResponseField>
+
+```php
+// Example: Check block type
+if($block->getTypeId() === BlockTypeIds::STONE){
+    $player->sendMessage("This is stone!");
+}
+```
+
+---
+
+#### getStateId
+
+```php
+public function getStateId() : int
+```
+
+Returns the full blockstate ID including all properties (facing, powered, etc.).
+
+<ResponseField name="return" type="int">
+  The complete block state ID
+</ResponseField>
+
+---
+
+#### getName
+
+```php
+public function getName() : string
+```
+
+Returns the printable English name of the block.
+
+<ResponseField name="return" type="string">
+  The block's name
+</ResponseField>
+
+```php
+// Example: Display block name
+$player->sendMessage("You're looking at: " . $block->getName());
+```
+
+---
+
+#### getPosition
+
+```php
+public function getPosition() : Position
+```
+
+Returns the position of this block in the world.
+
+<ResponseField name="return" type="Position">
+  The block's position including world reference
+</ResponseField>
+
+```php
+// Example: Get block position
+$pos = $block->getPosition();
+$player->sendMessage("Block at: {$pos->x}, {$pos->y}, {$pos->z}");
+```
+
+---
+
+### State Comparison
+
+#### hasSameTypeId
+
+```php
+public function hasSameTypeId(Block $other) : bool
+```
+
+Returns whether the given block has the same type ID as this one.
+
+<ParamField path="other" type="Block" required>
+  Block to compare with
+</ParamField>
+
+<ResponseField name="return" type="bool">
+  True if type IDs match
+</ResponseField>
+
+---
+
+#### isSameState
+
+```php
+public function isSameState(Block $other) : bool
+```
+
+Returns whether the given block has the same type and properties.
+
+<ParamField path="other" type="Block" required>
+  Block to compare with
+</ParamField>
+
+<ResponseField name="return" type="bool">
+  True if blocks have identical states
+</ResponseField>
+
+---
+
+### Item Conversion
+
+#### asItem
+
+```php
+public function asItem() : Item
+```
+
+Returns the block as an item. Block-only state is discarded.
+
+<ResponseField name="return" type="Item">
+  Item representation of the block
+</ResponseField>
+
+```php
+// Example: Give player block as item
+$item = $block->asItem();
+$player->getInventory()->addItem($item);
+```
+
+---
+
+### Placement & Breaking
+
+#### canBePlaced
+
+```php
+public function canBePlaced() : bool
+```
+
+Returns whether this block can be placed when obtained as an item.
+
+<ResponseField name="return" type="bool">
+  True if the block can be placed
+</ResponseField>
+
+---
+
+#### canBeReplaced
+
+```php
+public function canBeReplaced() : bool
+```
+
+Returns whether this block can be replaced by another block.
+
+<ResponseField name="return" type="bool">
+  True if the block can be replaced
+</ResponseField>
+
+---
+
+#### canBePlacedAt
+
+```php
+public function canBePlacedAt(Block $blockReplace, Vector3 $clickVector, int $face, bool $isClickedBlock) : bool
+```
+
+Returns whether this block can replace the given block.
+
+<ParamField path="blockReplace" type="Block" required>
+  Block to be replaced
+</ParamField>
+
+<ParamField path="clickVector" type="Vector3" required>
+  Exact click position relative to block
+</ParamField>
+
+<ParamField path="face" type="int" required>
+  Face of the block that was clicked
+</ParamField>
+
+<ParamField path="isClickedBlock" type="bool" required>
+  Whether this is the directly clicked block
+</ParamField>
+
+---
+
+#### place
+
+```php
+public function place(BlockTransaction $tx, Item $item, Block $blockReplace, Block $blockClicked, int $face, Vector3 $clickVector, ?Player $player = null) : bool
+```
+
+Generates a block transaction for placing this block.
+
+<ParamField path="tx" type="BlockTransaction" required>
+  Transaction to add blocks to
+</ParamField>
+
+<ParamField path="item" type="Item" required>
+  Item used to place the block
+</ParamField>
+
+<ParamField path="blockReplace" type="Block" required>
+  Block being replaced
+</ParamField>
+
+<ParamField path="blockClicked" type="Block" required>
+  Block that was clicked
+</ParamField>
+
+<ParamField path="face" type="int" required>
+  Face of clicked block
+</ParamField>
+
+<ParamField path="clickVector" type="Vector3" required>
+  Exact click position
+</ParamField>
+
+<ParamField path="player" type="Player|null">
+  Player placing the block
+</ParamField>
+
+<ResponseField name="return" type="bool">
+  Whether the placement should proceed
+</ResponseField>
+
+---
+
+#### onPostPlace
+
+```php
+public function onPostPlace() : void
+```
+
+Called immediately after the block has been placed in the world.
+
+---
+
+#### onBreak
+
+```php
+public function onBreak(Item $item, ?Player $player = null, array &$returnedItems = []) : bool
+```
+
+Called when the block is broken.
+
+<ParamField path="item" type="Item" required>
+  Item used to break the block
+</ParamField>
+
+<ParamField path="player" type="Player|null">
+  Player breaking the block
+</ParamField>
+
+<ParamField path="returnedItems" type="Item[]" byref>
+  Items to be returned to player
+</ParamField>
+
+<ResponseField name="return" type="bool">
+  Whether the block was successfully broken
+</ResponseField>
+
+---
+
+### Drops & Break Info
+
+#### getBreakInfo
+
+```php
+public function getBreakInfo() : BlockBreakInfo
+```
+
+Returns information about the destruction requirements of this block.
+
+<ResponseField name="return" type="BlockBreakInfo">
+  Object containing hardness, tool requirements, etc.
+</ResponseField>
+
+```php
+// Example: Check break info
+$breakInfo = $block->getBreakInfo();
+$hardness = $breakInfo->getHardness();
+$toolType = $breakInfo->getToolType();
+```
+
+---
+
+#### getDrops
+
+```php
+public function getDrops(Item $item) : array
+```
+
+Returns items dropped when the block is broken.
+
+<ParamField path="item" type="Item" required>
+  Item used to break the block
+</ParamField>
+
+<ResponseField name="return" type="Item[]">
+  Array of items to drop
+</ResponseField>
+
+```php
+// Example: Get block drops
+$drops = $block->getDrops($item);
+foreach($drops as $drop){
+    $player->sendMessage("Drops: " . $drop->getName());
+}
+```
+
+---
+
+#### getDropsForCompatibleTool
+
+```php
+public function getDropsForCompatibleTool(Item $item) : array
+```
+
+Returns drops when broken with a compatible tool.
+
+---
+
+#### getDropsForIncompatibleTool
+
+```php
+public function getDropsForIncompatibleTool(Item $item) : array
+```
+
+Returns drops when broken with an incompatible tool.
+
+---
+
+#### getSilkTouchDrops
+
+```php
+public function getSilkTouchDrops(Item $item) : array
+```
+
+Returns drops when broken with Silk Touch.
+
+---
+
+#### getXpDropForTool
+
+```php
+public function getXpDropForTool(Item $item) : int
+```
+
+Returns XP dropped when broken with the given tool.
+
+<ResponseField name="return" type="int">
+  Amount of XP to drop
+</ResponseField>
+
+---
+
+#### isAffectedBySilkTouch
+
+```php
+public function isAffectedBySilkTouch() : bool
+```
+
+Returns whether Silk Touch affects this block's drops.
+
+---
+
+### Interaction
+
+#### onInteract
+
+```php
+public function onInteract(Item $item, int $face, Vector3 $clickVector, ?Player $player = null, array &$returnedItems = []) : bool
+```
+
+Called when a player interacts with this block.
+
+<ParamField path="item" type="Item" required>
+  Item used to interact
+</ParamField>
+
+<ParamField path="face" type="int" required>
+  Face of the block clicked
+</ParamField>
+
+<ParamField path="clickVector" type="Vector3" required>
+  Exact click position
+</ParamField>
+
+<ParamField path="player" type="Player|null">
+  Player interacting
+</ParamField>
+
+<ParamField path="returnedItems" type="Item[]" byref>
+  Items to return to player
+</ParamField>
+
+<ResponseField name="return" type="bool">
+  Whether an action took place
+</ResponseField>
+
+---
+
+#### onAttack
+
+```php
+public function onAttack(Item $item, int $face, ?Player $player = null) : bool
+```
+
+Called when a player attacks (left-clicks) this block.
+
+<ResponseField name="return" type="bool">
+  Whether an action took place (prevents breaking if true)
+</ResponseField>
+
+---
+
+### Updates
+
+#### onNearbyBlockChange
+
+```php
+public function onNearbyBlockChange() : void
+```
+
+Called when this block or an adjacent block changes state.
+
+---
+
+#### ticksRandomly
+
+```php
+public function ticksRandomly() : bool
+```
+
+Returns whether random block updates will be done on this block.
+
+---
+
+#### onRandomTick
+
+```php
+public function onRandomTick() : void
+```
+
+Called when this block receives a random tick.
+
+---
+
+#### onScheduledUpdate
+
+```php
+public function onScheduledUpdate() : void
+```
+
+Called when this block is updated by the delayed update scheduler.
+
+---
+
+### Properties
+
+#### getLightLevel
+
+```php
+public function getLightLevel() : int
+```
+
+Returns the amount of light emitted by this block (0-15).
+
+<ResponseField name="return" type="int">
+  Light level (0-15)
+</ResponseField>
+
+---
+
+#### getLightFilter
+
+```php
+public function getLightFilter() : int
+```
+
+Returns light filtered when passing through this block (0-15).
+
+<ResponseField name="return" type="int">
+  Light filter value (0-15)
+</ResponseField>
+
+---
+
+#### blocksDirectSkyLight
+
+```php
+public function blocksDirectSkyLight() : bool
+```
+
+Returns whether this block blocks direct sky light.
+
+---
+
+#### isTransparent
+
+```php
+public function isTransparent() : bool
+```
+
+Returns whether this block allows light to pass through.
+
+---
+
+#### isSolid
+
+```php
+public function isSolid() : bool
+```
+
+Returns whether this block is considered "solid".
+
+---
+
+#### getFrictionFactor
+
+```php
+public function getFrictionFactor() : float
+```
+
+Returns a multiplier for entity velocity when moving on this block.
+
+<ResponseField name="return" type="float">
+  Friction factor (0.0-1.0, higher = more slippery)
+</ResponseField>
+
+---
+
+#### canBeFlowedInto
+
+```php
+public function canBeFlowedInto() : bool
+```
+
+Returns whether liquid can flow into this block's cell.
+
+---
+
+#### canClimb
+
+```php
+public function canClimb() : bool
+```
+
+Returns whether entities can climb this block.
+
+---
+
+### Type Tags
+
+#### hasTypeTag
+
+```php
+public function hasTypeTag(string $tag) : bool
+```
+
+Returns whether this block has the given type tag.
+
+<ParamField path="tag" type="string" required>
+  Tag to check for
+</ParamField>
+
+<ResponseField name="return" type="bool">
+  True if the block has this tag
+</ResponseField>
+
+```php
+use pocketmine\block\BlockTypeTags;
+
+// Example: Check if block is dirt-like
+if($block->hasTypeTag(BlockTypeTags::DIRT)){
+    $player->sendMessage("This is dirt-like!");
+}
+```
+
+---
+
+#### getTypeTags
+
+```php
+public function getTypeTags() : array
+```
+
+Returns all type tags for this block.
+
+<ResponseField name="return" type="string[]">
+  Array of type tag strings
+</ResponseField>
+
+---
+
+## VanillaBlocks Helper
+
+Provides easy access to vanilla block types.
+
+**Namespace:** `pocketmine\block\VanillaBlocks`
+
+### Usage
+
+```php
+use pocketmine\block\VanillaBlocks;
+
+// Get block instances
+$stone = VanillaBlocks::STONE();
+$grass = VanillaBlocks::GRASS();
+$oakLog = VanillaBlocks::OAK_LOG();
+$diamond = VanillaBlocks::DIAMOND_BLOCK();
+$air = VanillaBlocks::AIR();
+
+// Place blocks
+$world->setBlock($pos, VanillaBlocks::STONE());
+$world->setBlock($pos->add(1, 0, 0), VanillaBlocks::GRASS());
+```
+
+### Common Blocks
+
+<Expandable title="Stone & Ore Blocks">
+```php
+VanillaBlocks::STONE()
+VanillaBlocks::GRANITE()
+VanillaBlocks::DIORITE()
+VanillaBlocks::ANDESITE()
+VanillaBlocks::COBBLESTONE()
+VanillaBlocks::BEDROCK()
+VanillaBlocks::COAL_ORE()
+VanillaBlocks::IRON_ORE()
+VanillaBlocks::GOLD_ORE()
+VanillaBlocks::DIAMOND_ORE()
+VanillaBlocks::EMERALD_ORE()
+```
+</Expandable>
+
+<Expandable title="Natural Blocks">
+```php
+VanillaBlocks::GRASS()
+VanillaBlocks::DIRT()
+VanillaBlocks::SAND()
+VanillaBlocks::GRAVEL()
+VanillaBlocks::CLAY()
+VanillaBlocks::SNOW()
+VanillaBlocks::ICE()
+VanillaBlocks::WATER()
+VanillaBlocks::LAVA()
+```
+</Expandable>
+
+<Expandable title="Wood Blocks">
+```php
+VanillaBlocks::OAK_LOG()
+VanillaBlocks::SPRUCE_LOG()
+VanillaBlocks::BIRCH_LOG()
+VanillaBlocks::JUNGLE_LOG()
+VanillaBlocks::ACACIA_LOG()
+VanillaBlocks::DARK_OAK_LOG()
+VanillaBlocks::OAK_PLANKS()
+VanillaBlocks::OAK_LEAVES()
+```
+</Expandable>
+
+<Expandable title="Decorative Blocks">
+```php
+VanillaBlocks::GLASS()
+VanillaBlocks::GLOWSTONE()
+VanillaBlocks::SEA_LANTERN()
+VanillaBlocks::REDSTONE_LAMP()
+VanillaBlocks::BOOKSHELF()
+VanillaBlocks::CRAFTING_TABLE()
+VanillaBlocks::FURNACE()
+VanillaBlocks::CHEST()
+```
+</Expandable>
+
+---
+
+## BlockTypeIds Constants
+
+Numeric constants for block type IDs.
+
+**Namespace:** `pocketmine\block\BlockTypeIds`
+
+```php
+use pocketmine\block\BlockTypeIds;
+
+// Compare block types
+if($block->getTypeId() === BlockTypeIds::STONE){
+    // This is stone
+}
+
+if($block->getTypeId() === BlockTypeIds::GRASS){
+    // This is grass
+}
+```
+
+---
+
+## Common Usage Patterns
+
+### Checking Block Type
+
+```php
+use pocketmine\block\BlockTypeIds;
+use pocketmine\block\VanillaBlocks;
+
+// Method 1: Using type ID
+if($block->getTypeId() === BlockTypeIds::STONE){
+    $player->sendMessage("This is stone!");
+}
+
+// Method 2: Using hasSameTypeId
+if($block->hasSameTypeId(VanillaBlocks::STONE())){
+    $player->sendMessage("This is stone!");
+}
+
+// Method 3: Using instanceof (for specific block classes)
+use pocketmine\block\Chest;
+
+if($block instanceof Chest){
+    $player->sendMessage("This is a chest!");
+}
+```
+
+### Custom Block Placement
+
+```php
+use pocketmine\event\block\BlockPlaceEvent;
+use pocketmine\block\VanillaBlocks;
+
+public function onBlockPlace(BlockPlaceEvent $event) : void{
+    $player = $event->getPlayer();
+    $block = $event->getBlock();
+    
+    // Prevent placing certain blocks
+    if($block->hasSameTypeId(VanillaBlocks::TNT())){
+        $event->cancel();
+        $player->sendMessage("You cannot place TNT here!");
+    }
+}
+```
+
+### Working with Block States
+
+```php
+use pocketmine\block\Door;
+use pocketmine\math\Facing;
+
+// Example: Working with doors
+$door = VanillaBlocks::OAK_DOOR();
+if($door instanceof Door){
+    $door->setFacing(Facing::NORTH);
+    $door->setOpen(true);
+    $world->setBlock($pos, $door);
+}
+```
+
+### Reading Block NBT Data
+
+```php
+use pocketmine\block\tile\Chest;
+
+// Example: Access chest inventory
+$tile = $world->getTile($pos);
+if($tile instanceof Chest){
+    $inventory = $tile->getInventory();
+    foreach($inventory->getContents() as $item){
+        $player->sendMessage("Item: " . $item->getName());
+    }
+}
+```
+
+### Filling a Region
+
+```php
+use pocketmine\math\Vector3;
+use pocketmine\block\VanillaBlocks;
+
+public function fill(World $world, Vector3 $pos1, Vector3 $pos2, Block $block) : void{
+    $minX = (int) min($pos1->x, $pos2->x);
+    $maxX = (int) max($pos1->x, $pos2->x);
+    $minY = (int) min($pos1->y, $pos2->y);
+    $maxY = (int) max($pos1->y, $pos2->y);
+    $minZ = (int) min($pos1->z, $pos2->z);
+    $maxZ = (int) max($pos1->z, $pos2->z);
+    
+    for($x = $minX; $x <= $maxX; $x++){
+        for($y = $minY; $y <= $maxY; $y++){
+            for($z = $minZ; $z <= $maxZ; $z++){
+                $world->setBlock(new Vector3($x, $y, $z), $block);
+            }
+        }
+    }
+}
+
+// Usage
+$this->fill(
+    $world,
+    new Vector3(0, 64, 0),
+    new Vector3(10, 74, 10),
+    VanillaBlocks::GLASS()
+);
+```

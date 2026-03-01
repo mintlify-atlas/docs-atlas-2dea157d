@@ -1,0 +1,1011 @@
+---
+title: 'Entity API'
+description: 'Complete API reference for entity handling and manipulation in PocketMine-MP'
+---
+
+## Overview
+
+The Entity API provides comprehensive control over all entities in the game, including mobs, projectiles, items, and custom entities.
+
+## Entity Class
+
+The base class for all entities in PocketMine-MP.
+
+**Namespace:** `pocketmine\entity\Entity`
+
+### Core Methods
+
+#### getId
+
+```php
+public function getId() : int
+```
+
+Returns the entity's unique runtime ID.
+
+<ResponseField name="return" type="int">
+  The entity runtime ID
+</ResponseField>
+
+```php
+// Example: Store entity ID for later reference
+$entityId = $entity->getId();
+// Later: Find entity by ID
+$foundEntity = $world->getEntity($entityId);
+```
+
+---
+
+#### getLocation
+
+```php
+public function getLocation() : Location
+```
+
+Returns the entity's current location.
+
+<ResponseField name="return" type="Location">
+  Location including position, yaw, and pitch
+</ResponseField>
+
+```php
+// Example: Get entity position
+$location = $entity->getLocation();
+$player->sendMessage("Entity at: {$location->x}, {$location->y}, {$location->z}");
+```
+
+---
+
+#### getPosition
+
+```php
+public function getPosition() : Position
+```
+
+Returns the entity's position.
+
+<ResponseField name="return" type="Position">
+  Position including world reference
+</ResponseField>
+
+---
+
+#### getWorld
+
+```php
+public function getWorld() : World
+```
+
+Returns the world the entity is in.
+
+<ResponseField name="return" type="World">
+  The entity's current world
+</ResponseField>
+
+---
+
+### Movement & Teleportation
+
+#### teleport
+
+```php
+public function teleport(Vector3|Position|Location $pos, ?float $yaw = null, ?float $pitch = null) : bool
+```
+
+Teleports the entity to a new location.
+
+<ParamField path="pos" type="Vector3|Position|Location" required>
+  Destination position
+</ParamField>
+
+<ParamField path="yaw" type="float|null">
+  New yaw rotation
+</ParamField>
+
+<ParamField path="pitch" type="float|null">
+  New pitch rotation
+</ParamField>
+
+<ResponseField name="return" type="bool">
+  True if teleportation was successful
+</ResponseField>
+
+```php
+// Example: Teleport entity
+$entity->teleport(new Vector3(100, 64, 100));
+
+// Teleport with rotation
+$entity->teleport($targetPos, 90.0, 0.0);
+
+// Teleport to another world
+$otherWorld = $server->getWorldManager()->getWorldByName("world_nether");
+if($otherWorld !== null){
+    $entity->teleport(new Position(0, 64, 0, $otherWorld));
+}
+```
+
+---
+
+#### getMotion
+
+```php
+public function getMotion() : Vector3
+```
+
+Returns the entity's current velocity.
+
+<ResponseField name="return" type="Vector3">
+  Velocity vector
+</ResponseField>
+
+---
+
+#### setMotion
+
+```php
+public function setMotion(Vector3 $motion) : bool
+```
+
+Sets the entity's velocity.
+
+<ParamField path="motion" type="Vector3" required>
+  New velocity vector
+</ParamField>
+
+```php
+// Example: Launch entity upward
+$entity->setMotion(new Vector3(0, 2, 0));
+
+// Example: Push entity horizontally
+$entity->setMotion(new Vector3(1, 0, 1));
+```
+
+---
+
+#### addMotion
+
+```php
+public function addMotion(float $x, float $y, float $z) : void
+```
+
+Adds to the entity's current velocity.
+
+<ParamField path="x" type="float" required>
+  X velocity to add
+</ParamField>
+
+<ParamField path="y" type="float" required>
+  Y velocity to add
+</ParamField>
+
+<ParamField path="z" type="float" required>
+  Z velocity to add
+</ParamField>
+
+```php
+// Example: Apply knockback
+$entity->addMotion(0, 0.5, 0);
+```
+
+---
+
+### Health & Damage
+
+#### getHealth
+
+```php
+public function getHealth() : float
+```
+
+Returns the entity's current health.
+
+<ResponseField name="return" type="float">
+  Current health points
+</ResponseField>
+
+---
+
+#### setHealth
+
+```php
+public function setHealth(float $amount) : void
+```
+
+Sets the entity's health.
+
+<ParamField path="amount" type="float" required>
+  Health to set
+</ParamField>
+
+```php
+// Example: Heal entity to full health
+$entity->setHealth($entity->getMaxHealth());
+
+// Example: Set specific health
+$entity->setHealth(10.0);
+```
+
+---
+
+#### getMaxHealth
+
+```php
+public function getMaxHealth() : int
+```
+
+Returns the entity's maximum health.
+
+<ResponseField name="return" type="int">
+  Maximum health points
+</ResponseField>
+
+---
+
+#### setMaxHealth
+
+```php
+public function setMaxHealth(int $amount) : void
+```
+
+Sets the entity's maximum health.
+
+<ParamField path="amount" type="int" required>
+  Maximum health to set
+</ParamField>
+
+---
+
+#### isAlive
+
+```php
+public function isAlive() : bool
+```
+
+Returns whether the entity is alive.
+
+<ResponseField name="return" type="bool">
+  True if health > 0
+</ResponseField>
+
+---
+
+#### attack
+
+```php
+public function attack(EntityDamageEvent $source) : void
+```
+
+Applies damage to the entity.
+
+<ParamField path="source" type="EntityDamageEvent" required>
+  Damage event
+</ParamField>
+
+```php
+use pocketmine\event\entity\EntityDamageEvent;
+
+// Example: Deal custom damage
+$damage = new EntityDamageEvent($entity, EntityDamageEvent::CAUSE_CUSTOM, 5.0);
+$entity->attack($damage);
+```
+
+---
+
+#### heal
+
+```php
+public function heal(EntityRegainHealthEvent $source) : void
+```
+
+Heals the entity.
+
+<ParamField path="source" type="EntityRegainHealthEvent" required>
+  Heal event
+</ParamField>
+
+---
+
+#### kill
+
+```php
+public function kill() : void
+```
+
+Kills the entity instantly.
+
+```php
+// Example: Kill entity
+if($entity->isAlive()){
+    $entity->kill();
+}
+```
+
+---
+
+#### getLastDamageCause
+
+```php
+public function getLastDamageCause() : ?EntityDamageEvent
+```
+
+Returns the last damage cause.
+
+<ResponseField name="return" type="EntityDamageEvent|null">
+  Last damage event, or null
+</ResponseField>
+
+---
+
+### Name Tags
+
+#### getNameTag
+
+```php
+public function getNameTag() : string
+```
+
+Returns the entity's name tag.
+
+<ResponseField name="return" type="string">
+  The name tag text
+</ResponseField>
+
+---
+
+#### setNameTag
+
+```php
+public function setNameTag(string $name) : void
+```
+
+Sets the entity's name tag.
+
+<ParamField path="name" type="string" required>
+  Name tag text to set
+</ParamField>
+
+```php
+// Example: Set custom name tag
+$entity->setNameTag("§6Boss Monster");
+$entity->setNameTagVisible(true);
+$entity->setNameTagAlwaysVisible(true);
+```
+
+---
+
+#### isNameTagVisible
+
+```php
+public function isNameTagVisible() : bool
+```
+
+Returns whether the name tag is visible.
+
+---
+
+#### setNameTagVisible
+
+```php
+public function setNameTagVisible(bool $value = true) : void
+```
+
+Sets name tag visibility.
+
+<ParamField path="value" type="bool" default="true">
+  Whether the name tag should be visible
+</ParamField>
+
+---
+
+#### isNameTagAlwaysVisible
+
+```php
+public function isNameTagAlwaysVisible() : bool
+```
+
+Returns whether the name tag is always visible.
+
+---
+
+#### setNameTagAlwaysVisible
+
+```php
+public function setNameTagAlwaysVisible(bool $value = true) : void
+```
+
+Sets whether the name tag is always visible.
+
+---
+
+### Scale & Size
+
+#### getScale
+
+```php
+public function getScale() : float
+```
+
+Returns the entity's scale multiplier.
+
+<ResponseField name="return" type="float">
+  Scale multiplier (1.0 = normal size)
+</ResponseField>
+
+---
+
+#### setScale
+
+```php
+public function setScale(float $value) : void
+```
+
+Sets the entity's scale.
+
+<ParamField path="value" type="float" required>
+  Scale multiplier (must be > 0)
+</ParamField>
+
+```php
+// Example: Make entity twice as large
+$entity->setScale(2.0);
+
+// Example: Make entity half size
+$entity->setScale(0.5);
+```
+
+---
+
+#### getSize
+
+```php
+public function getSize() : EntitySizeInfo
+```
+
+Returns the entity's size information.
+
+<ResponseField name="return" type="EntitySizeInfo">
+  Width and height information
+</ResponseField>
+
+---
+
+#### getBoundingBox
+
+```php
+public function getBoundingBox() : AxisAlignedBB
+```
+
+Returns the entity's collision bounding box.
+
+<ResponseField name="return" type="AxisAlignedBB">
+  The entity's bounding box
+</ResponseField>
+
+---
+
+### Fire & Burning
+
+#### isOnFire
+
+```php
+public function isOnFire() : bool
+```
+
+Returns whether the entity is on fire.
+
+---
+
+#### setOnFire
+
+```php
+public function setOnFire(int $seconds) : void
+```
+
+Sets the entity on fire.
+
+<ParamField path="seconds" type="int" required>
+  Duration in seconds
+</ParamField>
+
+```php
+// Example: Set entity on fire for 5 seconds
+$entity->setOnFire(5);
+```
+
+---
+
+#### getFireTicks
+
+```php
+public function getFireTicks() : int
+```
+
+Returns remaining fire ticks.
+
+---
+
+#### setFireTicks
+
+```php
+public function setFireTicks(int $ticks) : void
+```
+
+Sets fire duration in ticks.
+
+---
+
+#### extinguish
+
+```php
+public function extinguish() : void
+```
+
+Extinguishes the entity.
+
+```php
+// Example: Put out fire
+if($entity->isOnFire()){
+    $entity->extinguish();
+}
+```
+
+---
+
+### Visibility & Properties
+
+#### isInvisible
+
+```php
+public function isInvisible() : bool
+```
+
+Returns whether the entity is invisible.
+
+---
+
+#### setInvisible
+
+```php
+public function setInvisible(bool $value = true) : void
+```
+
+Sets entity invisibility.
+
+<ParamField path="value" type="bool" default="true">
+  Whether the entity should be invisible
+</ParamField>
+
+```php
+// Example: Make entity invisible
+$entity->setInvisible(true);
+```
+
+---
+
+#### isSilent
+
+```php
+public function isSilent() : bool
+```
+
+Returns whether the entity makes sounds.
+
+---
+
+#### setSilent
+
+```php
+public function setSilent(bool $value = true) : void
+```
+
+Sets whether the entity is silent.
+
+---
+
+#### canClimb
+
+```php
+public function canClimb() : bool
+```
+
+Returns whether the entity can climb ladders.
+
+---
+
+#### setCanClimb
+
+```php
+public function setCanClimb(bool $value = true) : void
+```
+
+Sets whether the entity can climb.
+
+---
+
+### Ownership & Targeting
+
+#### getOwningEntity
+
+```php
+public function getOwningEntity() : ?Entity
+```
+
+Returns the entity's owner.
+
+<ResponseField name="return" type="Entity|null">
+  The owner entity, or null
+</ResponseField>
+
+---
+
+#### setOwningEntity
+
+```php
+public function setOwningEntity(?Entity $owner) : void
+```
+
+Sets the entity's owner.
+
+<ParamField path="owner" type="Entity|null" required>
+  New owner, or null to remove
+</ParamField>
+
+```php
+// Example: Set projectile owner
+use pocketmine\entity\projectile\Arrow;
+
+if($arrow instanceof Arrow){
+    $arrow->setOwningEntity($player);
+}
+```
+
+---
+
+#### getTargetEntity
+
+```php
+public function getTargetEntity() : ?Entity
+```
+
+Returns the entity's target.
+
+---
+
+#### setTargetEntity
+
+```php
+public function setTargetEntity(?Entity $target) : void
+```
+
+Sets the entity's target.
+
+---
+
+### Lifecycle
+
+#### close
+
+```php
+public function close() : void
+```
+
+Removes the entity from the world.
+
+```php
+// Example: Remove entity
+if($entity->isAlive()){
+    $entity->close();
+}
+```
+
+---
+
+#### isClosed
+
+```php
+public function isClosed() : bool
+```
+
+Returns whether the entity has been closed.
+
+---
+
+#### isFlaggedForDespawn
+
+```php
+public function isFlaggedForDespawn() : bool
+```
+
+Returns whether the entity is flagged for removal.
+
+---
+
+#### flagForDespawn
+
+```php
+public function flagForDespawn() : void
+```
+
+Flags the entity for removal on next tick.
+
+---
+
+#### canSaveWithChunk
+
+```php
+public function canSaveWithChunk() : bool
+```
+
+Returns whether the entity saves with chunks.
+
+---
+
+#### setCanSaveWithChunk
+
+```php
+public function setCanSaveWithChunk(bool $value) : void
+```
+
+Sets whether the entity saves with chunks.
+
+---
+
+### NBT Data
+
+#### saveNBT
+
+```php
+public function saveNBT() : CompoundTag
+```
+
+Saves the entity to NBT.
+
+<ResponseField name="return" type="CompoundTag">
+  NBT data for the entity
+</ResponseField>
+
+---
+
+## Living Class
+
+Extends Entity with living entity features.
+
+**Namespace:** `pocketmine\entity\Living`
+
+### Additional Methods
+
+#### getEffects
+
+```php
+public function getEffects() : EffectManager
+```
+
+Returns the effect manager for this entity.
+
+<ResponseField name="return" type="EffectManager">
+  The effect manager
+</ResponseField>
+
+```php
+use pocketmine\entity\effect\VanillaEffects;
+use pocketmine\entity\effect\EffectInstance;
+
+// Example: Apply potion effect
+$effect = new EffectInstance(VanillaEffects::SPEED(), 20 * 60, 1); // 1 minute, level 2
+$entity->getEffects()->add($effect);
+```
+
+---
+
+#### hasLineOfSight
+
+```php
+public function hasLineOfSight(Entity $entity) : bool
+```
+
+Returns whether this entity can see another entity.
+
+---
+
+#### getArmorInventory
+
+```php
+public function getArmorInventory() : ArmorInventory
+```
+
+Returns the armor inventory.
+
+---
+
+## Human Class
+
+Extends Living with player-like features.
+
+**Namespace:** `pocketmine\entity\Human`
+
+### Additional Methods
+
+#### getInventory
+
+```php
+public function getInventory() : PlayerInventory
+```
+
+Returns the player inventory.
+
+---
+
+#### getSkin
+
+```php
+public function getSkin() : Skin
+```
+
+Returns the entity's skin.
+
+---
+
+#### setSkin
+
+```php
+public function setSkin(Skin $skin) : void
+```
+
+Sets the entity's skin.
+
+---
+
+## EntityFactory
+
+Factory for creating and registering entities.
+
+**Namespace:** `pocketmine\entity\EntityFactory`
+
+### Methods
+
+#### getInstance
+
+```php
+public static function getInstance() : EntityFactory
+```
+
+Returns the singleton instance.
+
+---
+
+#### register
+
+```php
+public function register(string $className, callable $creationFunc, array $saveNames) : void
+```
+
+Registers a custom entity type.
+
+<ParamField path="className" type="string" required>
+  Fully qualified class name
+</ParamField>
+
+<ParamField path="creationFunc" type="callable" required>
+  Entity creation callback
+</ParamField>
+
+<ParamField path="saveNames" type="string[]" required>
+  NBT save identifiers
+</ParamField>
+
+```php
+use pocketmine\entity\EntityFactory;
+use pocketmine\entity\EntityDataHelper;
+use pocketmine\entity\Location;
+use pocketmine\nbt\tag\CompoundTag;
+
+// Example: Register custom entity
+EntityFactory::getInstance()->register(
+    CustomEntity::class,
+    function(Location $location, CompoundTag $nbt) : CustomEntity{
+        return new CustomEntity($location, $nbt);
+    },
+    ['CustomEntity', 'my_plugin:custom_entity']
+);
+```
+
+---
+
+## Common Usage Patterns
+
+### Spawning Entities
+
+```php
+use pocketmine\entity\Location;
+use pocketmine\entity\EntityFactory;
+use pocketmine\nbt\tag\CompoundTag;
+
+// Spawn a basic entity
+$location = new Location(100, 64, 100, $world, 0, 0);
+$nbt = CompoundTag::create();
+$entity = EntityFactory::getInstance()->create(EntityTypeIds::ZOMBIE, $location, $nbt);
+if($entity !== null){
+    $entity->spawnToAll();
+}
+```
+
+### Finding Nearby Entities
+
+```php
+use pocketmine\math\AxisAlignedBB;
+
+// Find entities within radius
+$radius = 10;
+$bb = new AxisAlignedBB(
+    $pos->x - $radius, $pos->y - $radius, $pos->z - $radius,
+    $pos->x + $radius, $pos->y + $radius, $pos->z + $radius
+);
+
+$nearbyEntities = $world->getNearbyEntities($bb);
+foreach($nearbyEntities as $entity){
+    if($entity instanceof Living){
+        // Do something with living entities
+    }
+}
+```
+
+### Applying Effects
+
+```php
+use pocketmine\entity\Living;
+use pocketmine\entity\effect\VanillaEffects;
+use pocketmine\entity\effect\EffectInstance;
+
+if($entity instanceof Living){
+    // Add speed effect
+    $entity->getEffects()->add(
+        new EffectInstance(VanillaEffects::SPEED(), 20 * 30, 1) // 30 seconds, level 2
+    );
+    
+    // Add multiple effects
+    $entity->getEffects()->add(
+        new EffectInstance(VanillaEffects::REGENERATION(), 20 * 10, 0)
+    );
+    
+    // Remove all effects
+    $entity->getEffects()->clear();
+}
+```
+
+### Custom Entity Behavior
+
+```php
+use pocketmine\entity\Living;
+use pocketmine\entity\EntitySizeInfo;
+use pocketmine\nbt\tag\CompoundTag;
+
+class CustomMob extends Living{
+    
+    protected function getInitialSizeInfo() : EntitySizeInfo{
+        return new EntitySizeInfo(1.8, 0.6); // height, width
+    }
+    
+    protected function getInitialDragMultiplier() : float{
+        return 0.02;
+    }
+    
+    protected function getInitialGravity() : float{
+        return 0.08;
+    }
+    
+    public function getName() : string{
+        return "Custom Mob";
+    }
+    
+    protected function entityBaseTick(int $tickDiff = 1) : bool{
+        $hasUpdate = parent::entityBaseTick($tickDiff);
+        
+        // Custom behavior every tick
+        if($this->isAlive()){
+            // AI logic here
+        }
+        
+        return $hasUpdate;
+    }
+}
+```

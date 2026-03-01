@@ -1,0 +1,437 @@
+---
+title: Plugin Structure
+description: Understanding plugin anatomy, plugin.yml, and folder organization
+---
+
+This page explains the structure of PocketMine-MP plugins and how to properly configure them.
+
+## Folder Structure
+
+A properly structured plugin looks like this:
+
+```
+MyPlugin/
+├── plugin.yml              # Plugin manifest (required)
+├── resources/              # Embedded resources (optional)
+│   ├── config.yml
+│   ├── messages.yml
+│   └── data/
+│       └── items.json
+└── src/                    # Source code
+    └── MyNamespace/
+        ├── Main.php        # Main plugin class
+        ├── commands/
+        │   └── MyCommand.php
+        ├── events/
+        │   └── EventListener.php
+        └── tasks/
+            └── MyTask.php
+```
+
+<Note>
+Only `plugin.yml` and your main class are required. All other files are optional.
+</Note>
+
+## plugin.yml Reference
+
+The `plugin.yml` file is the plugin manifest. It describes your plugin to the server.
+
+### Required Fields
+
+```yaml
+name: MyPlugin              # Plugin name (alphanumeric, spaces, _, -, .)
+version: 1.0.0             # Version string
+main: MyNamespace\Main      # Fully qualified main class name
+api: [5.0.0]               # Compatible API versions (array)
+```
+
+### Optional Fields
+
+```yaml
+# Metadata
+author: YourName           # Single author
+authors: [Alice, Bob]      # Multiple authors
+description: Plugin description
+website: https://example.com
+prefix: MyPlugin           # Logger prefix (defaults to plugin name)
+
+# Loading
+load: POSTWORLD            # STARTUP or POSTWORLD (default)
+
+# Dependencies
+depend: [PluginA]          # Hard dependencies (required)
+softdepend: [PluginB]      # Soft dependencies (optional)
+loadbefore: [PluginC]      # Load before these plugins
+
+# Requirements
+mcpe-protocol: [575, 582]  # Compatible protocol versions
+os: [linux, windows]       # Compatible operating systems
+extensions:                # Required PHP extensions
+  - sqlite3
+  - curl
+
+# Source namespace prefix (for DevTools)
+src-namespace-prefix: MyNamespace
+```
+
+### Commands
+
+Declare commands in `plugin.yml`:
+
+```yaml
+commands:
+  mycommand:
+    description: Does something cool
+    usage: /mycommand <arg>
+    aliases: [mc, mycmd]
+    permission: myplugin.command.mycommand
+    permission-message: You don't have permission to use this command
+  
+  anothercommand:
+    description: Another command
+    usage: /anothercommand
+    permission: myplugin.command.another
+```
+
+<Warning>
+All commands declared in `plugin.yml` MUST have a `permission` field in API 5.0+. This is a security requirement.
+</Warning>
+
+### Permissions
+
+Declare permissions in `plugin.yml`:
+
+```yaml
+permissions:
+  myplugin.command.mycommand:
+    description: Allows using /mycommand
+    default: true              # true, false, op, or notop
+  
+  myplugin.admin:
+    description: Admin permissions
+    default: op
+    children:
+      myplugin.command.mycommand: true
+      myplugin.command.another: true
+  
+  myplugin.vip:
+    description: VIP permissions
+    default: false
+```
+
+**Default values:**
+- `true` - Everyone has this permission
+- `false` - No one has this permission by default
+- `op` - Only operators have this permission
+- `notop` - Only non-operators have this permission
+
+## Complete plugin.yml Example
+
+```yaml
+name: AdvancedPlugin
+version: 2.1.0
+main: Author\AdvancedPlugin\Main
+api: [5.0.0]
+
+author: PluginAuthor
+description: An advanced example plugin
+website: https://github.com/author/advancedplugin
+prefix: AdvPlugin
+
+load: POSTWORLD
+
+depend: [EconomyAPI]
+softdepend: [WorldGuard]
+
+commands:
+  myitem:
+    description: Get a custom item
+    usage: /myitem <type>
+    aliases: [mi, item]
+    permission: advplugin.command.myitem
+  
+  reload:
+    description: Reload plugin configuration
+    usage: /advplugin reload
+    permission: advplugin.command.reload
+    permission-message: §cYou need admin permissions!
+
+permissions:
+  advplugin.command.myitem:
+    description: Use the myitem command
+    default: true
+  
+  advplugin.command.reload:
+    description: Reload the plugin
+    default: op
+  
+  advplugin.admin:
+    description: All admin permissions
+    default: op
+    children:
+      advplugin.command.reload: true
+      advplugin.bypass.cooldown: true
+  
+  advplugin.bypass.cooldown:
+    description: Bypass item cooldowns
+    default: false
+```
+
+## Main Class Structure
+
+Your main class must extend `PluginBase`:
+
+```php src/MyNamespace/Main.php
+<?php
+
+declare(strict_types=1);
+
+namespace MyNamespace;
+
+use pocketmine\plugin\PluginBase;
+
+class Main extends PluginBase {
+    
+    // Called when plugin is loaded (before onEnable)
+    protected function onLoad() : void {
+        // Early initialization
+        // Register custom classes
+        // DO NOT access Server instance here
+    }
+    
+    // Called when plugin is enabled
+    protected function onEnable() : void {
+        // Most initialization happens here
+        // Load config
+        // Register events
+        // Register commands
+        // Start tasks
+    }
+    
+    // Called when plugin is disabled
+    protected function onDisable() : void {
+        // Cleanup
+        // Save data
+        // Cancel tasks
+    }
+}
+```
+
+## Load Order
+
+Plugins can specify when they should be loaded:
+
+### STARTUP
+
+Loaded before worlds are loaded. Use this if your plugin:
+- Registers custom world generators
+- Modifies world loading behavior
+- Needs to run very early
+
+```yaml
+load: STARTUP
+```
+
+<Warning>
+STARTUP plugins cannot access worlds in `onEnable()` because they haven't loaded yet.
+</Warning>
+
+### POSTWORLD (Default)
+
+Loaded after worlds are loaded. This is the default and recommended for most plugins.
+
+```yaml
+load: POSTWORLD
+```
+
+## Dependencies
+
+Control plugin load order with dependencies:
+
+### Hard Dependencies (depend)
+
+Required plugins. Server won't load your plugin without them.
+
+```yaml
+depend: [EconomyAPI, WorldGuard]
+```
+
+### Soft Dependencies (softdepend)
+
+Optional plugins. If present, they load before your plugin.
+
+```yaml
+softdepend: [BetterChat]
+```
+
+Check if soft dependencies are loaded:
+
+```php
+if($this->getServer()->getPluginManager()->getPlugin("BetterChat") !== null) {
+    // BetterChat is loaded, integrate with it
+}
+```
+
+### Load Before (loadbefore)
+
+Your plugin loads before these plugins.
+
+```yaml
+loadbefore: [AnotherPlugin]
+```
+
+## Resources Folder
+
+The `resources/` folder contains files embedded in your plugin:
+
+```
+MyPlugin/
+└── resources/
+    ├── config.yml          # Default config
+    ├── messages.yml
+    └── data/
+        └── items.json
+```
+
+Access resources in code:
+
+```php
+// Save default config to data folder
+$this->saveDefaultConfig();
+
+// Save other resources
+$this->saveResource("messages.yml");
+
+// Read resource directly (doesn't save to disk)
+$contents = file_get_contents($this->getResourcePath("data/items.json"));
+```
+
+<Note>
+Resources are read-only. To modify them, copy them to the data folder first using `saveResource()`.
+</Note>
+
+## Data Folder
+
+Each plugin gets a data folder at `plugins/MyPlugin/`:
+
+```php
+// Get data folder path
+$dataFolder = $this->getDataFolder();
+
+// Save a file
+file_put_contents($dataFolder . "data.json", $jsonData);
+
+// Read a file
+$data = file_get_contents($dataFolder . "data.json");
+```
+
+The data folder is created automatically when your plugin loads.
+
+## Namespace Best Practices
+
+<Steps>
+
+<Step title="Use unique top-level namespace">
+
+Use your username or organization:
+
+```php
+namespace MyUsername\MyPlugin;
+// or
+namespace MyOrg\MyPlugin;
+```
+
+</Step>
+
+<Step title="Match folder structure">
+
+```
+src/
+└── MyUsername/
+    └── MyPlugin/
+        ├── Main.php          # MyUsername\MyPlugin\Main
+        └── commands/
+            └── MyCmd.php     # MyUsername\MyPlugin\commands\MyCmd
+```
+
+</Step>
+
+<Step title="Use src-namespace-prefix for DevTools">
+
+If using DevTools to build PHAR files:
+
+```yaml
+src-namespace-prefix: MyUsername\MyPlugin
+```
+
+</Step>
+
+</Steps>
+
+## API Versions
+
+Specify which API versions your plugin supports:
+
+```yaml
+# Single version
+api: [5.0.0]
+
+# Multiple versions
+api: [5.0.0, 5.1.0]
+
+# All 5.x versions (not recommended)
+api: [5.0.0, 5.1.0, 5.2.0, 5.3.0]
+```
+
+<Tip>
+Check your server's API version with `/version` in-game or `server.properties`.
+</Tip>
+
+## Common Mistakes
+
+<Warning>
+
+**Mistake 1: Colons in command names**
+```yaml
+commands:
+  myplugin:command:  # ❌ Invalid
+    description: Bad
+```
+
+Command names cannot contain colons.
+
+**Mistake 2: Missing permission field**
+```yaml
+commands:
+  mycommand:
+    description: My command  # ❌ Missing permission
+```
+
+All commands MUST have a permission in API 5.0+.
+
+**Mistake 3: Wrong namespace**
+```yaml
+main: Main  # ❌ No namespace
+```
+```yaml
+main: MyNamespace\\Main  # ❌ Double backslashes
+```
+```yaml
+main: MyNamespace\Main  # ✅ Correct
+```
+
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Event Handlers" icon="bolt" href="/plugins/event-handlers">
+Learn to handle game events
+</Card>
+
+<Card title="Commands" icon="terminal" href="/plugins/commands">
+Create custom commands
+</Card>
+
+</CardGroup>

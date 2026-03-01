@@ -1,0 +1,523 @@
+---
+title: 'Plugin API'
+description: 'PluginBase and Plugin API reference for PocketMine-MP'
+---
+
+## Overview
+
+The `PluginBase` class is the foundation for all PocketMine-MP plugins. Every plugin must extend this class and implement its lifecycle methods.
+
+## Creating a Plugin
+
+```php Creating a basic plugin
+<?php
+
+namespace MyPlugin;
+
+use pocketmine\plugin\PluginBase;
+
+class Main extends PluginBase {
+    
+    protected function onLoad() : void {
+        $this->getLogger()->info("Plugin loading...");
+    }
+    
+    protected function onEnable() : void {
+        $this->getLogger()->info("Plugin enabled!");
+    }
+    
+    protected function onDisable() : void {
+        $this->getLogger()->info("Plugin disabled!");
+    }
+}
+```
+
+## Lifecycle Methods
+
+### onLoad()
+
+Called when the plugin is loaded, before `onEnable()`.
+
+```php onLoad() : void
+protected function onLoad() : void
+```
+
+Use this method to:
+- Register custom generators
+- Register custom entities
+- Perform early initialization
+
+**Example:**
+```php
+protected function onLoad() : void {
+    GeneratorManager::getInstance()->addGenerator(
+        CustomGenerator::class,
+        "custom",
+        fn() => null
+    );
+}
+```
+
+### onEnable()
+
+Called when the plugin is enabled.
+
+```php onEnable() : void
+protected function onEnable() : void
+```
+
+Use this method to:
+- Register event listeners
+- Schedule tasks
+- Load configuration
+- Register commands
+
+**Example:**
+```php
+protected function onEnable() : void {
+    $this->getServer()->getPluginManager()->registerEvents(
+        new MyListener($this),
+        $this
+    );
+    
+    $this->saveDefaultConfig();
+    
+    $this->getScheduler()->scheduleRepeatingTask(
+        new MyTask(),
+        20 // Run every second
+    );
+}
+```
+
+### onDisable()
+
+Called when the plugin is disabled.
+
+```php onDisable() : void
+protected function onDisable() : void
+```
+
+Use this method to:
+- Save data
+- Close database connections
+- Cancel tasks
+- Clean up resources
+
+**Example:**
+```php
+protected function onDisable() : void {
+    $this->saveConfig();
+    $this->database->close();
+}
+```
+
+## Core Methods
+
+### getServer()
+
+Gets the server instance.
+
+```php getServer() : Server
+final public function getServer() : Server
+```
+
+**Returns:** `Server` - The server instance
+
+**Example:**
+```php
+$server = $this->getServer();
+$players = $server->getOnlinePlayers();
+```
+
+### getLogger()
+
+Gets the plugin's logger.
+
+```php getLogger() : \AttachableLogger
+public function getLogger() : \AttachableLogger
+```
+
+**Returns:** `AttachableLogger` - Plugin logger instance
+
+**Example:**
+```php
+$this->getLogger()->info("Information message");
+$this->getLogger()->warning("Warning message");
+$this->getLogger()->error("Error message");
+$this->getLogger()->debug("Debug message");
+```
+
+### getName()
+
+Gets the plugin name from plugin.yml.
+
+```php getName() : string
+final public function getName() : string
+```
+
+**Returns:** `string` - Plugin name
+
+### getDescription()
+
+Gets the plugin description object.
+
+```php getDescription() : PluginDescription
+final public function getDescription() : PluginDescription
+```
+
+**Returns:** `PluginDescription` - Plugin metadata
+
+**Example:**
+```php
+$desc = $this->getDescription();
+$version = $desc->getVersion();
+$authors = $desc->getAuthors();
+```
+
+### getDataFolder()
+
+Gets the plugin's data folder path.
+
+```php getDataFolder() : string
+final public function getDataFolder() : string
+```
+
+**Returns:** `string` - Absolute path to plugin data folder
+
+**Example:**
+```php
+$dataFolder = $this->getDataFolder();
+$dbPath = $dataFolder . "database.db";
+```
+
+### isEnabled()
+
+Checks if the plugin is enabled.
+
+```php isEnabled() : bool
+final public function isEnabled() : bool
+```
+
+**Returns:** `bool` - True if plugin is enabled
+
+### isDisabled()
+
+Checks if the plugin is disabled.
+
+```php isDisabled() : bool
+final public function isDisabled() : bool
+```
+
+**Returns:** `bool` - True if plugin is disabled
+
+## Configuration
+
+### getConfig()
+
+Gets the plugin's config.yml as a Config object.
+
+```php getConfig() : Config
+public function getConfig() : Config
+```
+
+**Returns:** `Config` - Configuration object
+
+**Example:**
+```php
+$config = $this->getConfig();
+$maxPlayers = $config->get("max-players", 10);
+$enabled = $config->get("enabled", true);
+```
+
+### saveConfig()
+
+Saves the current config to disk.
+
+```php saveConfig() : void
+public function saveConfig() : void
+```
+
+**Example:**
+```php
+$config = $this->getConfig();
+$config->set("last-save", time());
+$this->saveConfig();
+```
+
+### saveDefaultConfig()
+
+Saves the default config.yml from the plugin resources.
+
+```php saveDefaultConfig() : bool
+public function saveDefaultConfig() : bool
+```
+
+**Returns:** `bool` - True if config was saved, false if already exists
+
+**Example:**
+```php
+protected function onEnable() : void {
+    $this->saveDefaultConfig();
+    $config = $this->getConfig();
+}
+```
+
+### reloadConfig()
+
+Reloads the config from disk.
+
+```php reloadConfig() : void
+public function reloadConfig() : void
+```
+
+**Example:**
+```php
+public function onCommand(CommandSender $sender, Command $command, string $label, array $args) : bool {
+    if($command->getName() === "myreload") {
+        $this->reloadConfig();
+        $sender->sendMessage("Config reloaded!");
+        return true;
+    }
+    return false;
+}
+```
+
+## Resources
+
+### saveResource()
+
+Saves a resource file from the plugin to the data folder.
+
+```php saveResource(string $filename, bool $replace = false) : bool
+public function saveResource(string $filename, bool $replace = false) : bool
+```
+
+<ParamField path="filename" type="string" required>
+  Name of the resource file in the resources folder
+</ParamField>
+
+<ParamField path="replace" type="bool">
+  Whether to overwrite existing file (default: false)
+</ParamField>
+
+**Returns:** `bool` - True if resource was saved successfully
+
+**Example:**
+```php
+protected function onEnable() : void {
+    $this->saveResource("config.yml");
+    $this->saveResource("messages.yml");
+    $this->saveResource("data.json", true); // Replace if exists
+}
+```
+
+### getResource()
+
+Gets a resource from the plugin as a file handle.
+
+```php getResource(string $filename)
+public function getResource(string $filename)
+```
+
+<ParamField path="filename" type="string" required>
+  Resource filename
+</ParamField>
+
+**Returns:** `resource|null` - File handle or null if not found
+
+**Note:** Deprecated. Use `getResourcePath()` with standard PHP functions instead.
+
+### getResourcePath()
+
+Gets the full path to a resource file.
+
+```php getResourcePath(string $filename) : string
+public function getResourcePath(string $filename) : string
+```
+
+<ParamField path="filename" type="string" required>
+  Resource filename
+</ParamField>
+
+**Returns:** `string` - Full path to resource file
+
+**Example:**
+```php
+$path = $this->getResourcePath("data.json");
+$data = json_decode(file_get_contents($path), true);
+```
+
+### getResources()
+
+Gets all resources in the plugin.
+
+```php getResources() : array
+public function getResources() : array
+```
+
+**Returns:** `SplFileInfo[]` - Array of resource file info objects
+
+## Scheduler
+
+### getScheduler()
+
+Gets the plugin's task scheduler.
+
+```php getScheduler() : TaskScheduler
+public function getScheduler() : TaskScheduler
+```
+
+**Returns:** `TaskScheduler` - The plugin's scheduler
+
+**Example:**
+```php
+$scheduler = $this->getScheduler();
+
+// Schedule immediate task
+$scheduler->scheduleTask(new MyTask());
+
+// Schedule delayed task (5 seconds)
+$scheduler->scheduleDelayedTask(new MyTask(), 20 * 5);
+
+// Schedule repeating task (every 1 second)
+$scheduler->scheduleRepeatingTask(new MyTask(), 20);
+
+// Schedule delayed repeating task
+$scheduler->scheduleDelayedRepeatingTask(new MyTask(), 20 * 5, 20);
+```
+
+## Commands
+
+### getCommand()
+
+Gets a command registered by this plugin.
+
+```php getCommand(string $name)
+public function getCommand(string $name)
+```
+
+<ParamField path="name" type="string" required>
+  Command name
+</ParamField>
+
+**Returns:** `Command|null` - Command object if found and owned by this plugin
+
+**Example:**
+```php
+$command = $this->getCommand("mycommand");
+if($command !== null) {
+    $command->setPermission("myplugin.admin");
+}
+```
+
+### onCommand()
+
+Handles command execution. Override this to handle commands defined in plugin.yml.
+
+```php onCommand(CommandSender $sender, Command $command, string $label, array $args) : bool
+public function onCommand(CommandSender $sender, Command $command, string $label, array $args) : bool
+```
+
+<ParamField path="sender" type="CommandSender" required>
+  Who executed the command
+</ParamField>
+
+<ParamField path="command" type="Command" required>
+  The command object
+</ParamField>
+
+<ParamField path="label" type="string" required>
+  The command label used
+</ParamField>
+
+<ParamField path="args" type="string[]" required>
+  Command arguments
+</ParamField>
+
+**Returns:** `bool` - True if command was handled successfully
+
+**Example:**
+```php
+public function onCommand(CommandSender $sender, Command $command, string $label, array $args) : bool {
+    switch($command->getName()) {
+        case "heal":
+            if($sender instanceof Player) {
+                $sender->setHealth($sender->getMaxHealth());
+                $sender->sendMessage("You have been healed!");
+                return true;
+            }
+            $sender->sendMessage("This command can only be used in-game");
+            return false;
+            
+        case "broadcast":
+            if(count($args) === 0) {
+                return false; // Shows usage
+            }
+            $message = implode(" ", $args);
+            $this->getServer()->broadcastMessage($message);
+            return true;
+    }
+    return false;
+}
+```
+
+## Complete Example
+
+```php Complete plugin example
+<?php
+
+namespace MyPlugin;
+
+use pocketmine\plugin\PluginBase;
+use pocketmine\event\Listener;
+use pocketmine\event\player\PlayerJoinEvent;
+use pocketmine\command\Command;
+use pocketmine\command\CommandSender;
+use pocketmine\player\Player;
+use pocketmine\scheduler\Task;
+
+class Main extends PluginBase implements Listener {
+    
+    protected function onEnable() : void {
+        // Save default config
+        $this->saveDefaultConfig();
+        
+        // Register event listener
+        $this->getServer()->getPluginManager()->registerEvents($this, $this);
+        
+        // Schedule repeating task
+        $this->getScheduler()->scheduleRepeatingTask(
+            new class($this) extends Task {
+                public function __construct(private Main $plugin) {}
+                
+                public function onRun() : void {
+                    $this->plugin->getLogger()->debug("Task running...");
+                }
+            },
+            20 * 60 // Every minute
+        );
+        
+        $this->getLogger()->info("Plugin enabled!");
+    }
+    
+    public function onPlayerJoin(PlayerJoinEvent $event) : void {
+        $player = $event->getPlayer();
+        $message = $this->getConfig()->get("join-message", "Welcome {player}!");
+        $message = str_replace("{player}", $player->getName(), $message);
+        $player->sendMessage($message);
+    }
+    
+    public function onCommand(CommandSender $sender, Command $command, string $label, array $args) : bool {
+        if($command->getName() === "myplugin") {
+            $sender->sendMessage("MyPlugin v" . $this->getDescription()->getVersion());
+            return true;
+        }
+        return false;
+    }
+    
+    protected function onDisable() : void {
+        $this->saveConfig();
+        $this->getLogger()->info("Plugin disabled!");
+    }
+}
+```

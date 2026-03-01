@@ -1,0 +1,826 @@
+---
+title: 'World & WorldManager API'
+description: 'Complete API reference for world management and world manipulation in PocketMine-MP'
+---
+
+## Overview
+
+The World API provides comprehensive control over game worlds, including block manipulation, entity management, chunk loading, time control, and world events.
+
+## World Class
+
+The `World` class represents a loaded world in PocketMine-MP.
+
+**Namespace:** `pocketmine\world\World`
+
+### Constants
+
+<ResponseField name="Y_MAX" type="int" default="320">
+  Maximum world height
+</ResponseField>
+
+<ResponseField name="Y_MIN" type="int" default="-64">
+  Minimum world height
+</ResponseField>
+
+<ResponseField name="TIME_DAY" type="int" default="1000">
+  Time value for day
+</ResponseField>
+
+<ResponseField name="TIME_NOON" type="int" default="6000">
+  Time value for noon
+</ResponseField>
+
+<ResponseField name="TIME_SUNSET" type="int" default="12000">
+  Time value for sunset
+</ResponseField>
+
+<ResponseField name="TIME_NIGHT" type="int" default="13000">
+  Time value for night
+</ResponseField>
+
+<ResponseField name="TIME_MIDNIGHT" type="int" default="18000">
+  Time value for midnight
+</ResponseField>
+
+<ResponseField name="TIME_SUNRISE" type="int" default="23000">
+  Time value for sunrise
+</ResponseField>
+
+<ResponseField name="TIME_FULL" type="int" default="24000">
+  Full day-night cycle duration
+</ResponseField>
+
+<ResponseField name="DIFFICULTY_PEACEFUL" type="int" default="0">
+  Peaceful difficulty level
+</ResponseField>
+
+<ResponseField name="DIFFICULTY_EASY" type="int" default="1">
+  Easy difficulty level
+</ResponseField>
+
+<ResponseField name="DIFFICULTY_NORMAL" type="int" default="2">
+  Normal difficulty level
+</ResponseField>
+
+<ResponseField name="DIFFICULTY_HARD" type="int" default="3">
+  Hard difficulty level
+</ResponseField>
+
+### Core Methods
+
+#### getId
+
+```php
+public function getId() : int
+```
+
+Returns the unique world identifier.
+
+<ResponseField name="return" type="int">
+  The unique world ID
+</ResponseField>
+
+---
+
+#### getFolderName
+
+```php
+public function getFolderName() : string
+```
+
+Returns the folder name of the world.
+
+---
+
+#### getDisplayName
+
+```php
+public function getDisplayName() : string
+```
+
+Returns the display name of the world.
+
+---
+
+#### getServer
+
+```php
+public function getServer() : Server
+```
+
+Returns the Server instance.
+
+---
+
+#### getProvider
+
+```php
+public function getProvider() : WritableWorldProvider
+```
+
+Returns the world provider handling world data storage.
+
+---
+
+### Block Manipulation
+
+#### getBlock
+
+```php
+public function getBlock(Vector3 $pos, bool $cached = true, bool $addToCache = true) : Block
+```
+
+Gets a block at the specified position.
+
+<ParamField path="pos" type="Vector3" required>
+  Position of the block
+</ParamField>
+
+<ParamField path="cached" type="bool" default="true">
+  Whether to use cached block data
+</ParamField>
+
+<ParamField path="addToCache" type="bool" default="true">
+  Whether to add the block to cache
+</ParamField>
+
+<ResponseField name="return" type="Block">
+  The block at the specified position
+</ResponseField>
+
+```php
+// Example: Get block at position
+$block = $world->getBlock(new Vector3(100, 64, 100));
+$player->sendMessage("Block: " . $block->getName());
+```
+
+---
+
+#### setBlock
+
+```php
+public function setBlock(Vector3 $pos, Block $block, bool $update = true) : void
+```
+
+Sets a block at the specified position.
+
+<ParamField path="pos" type="Vector3" required>
+  Position to place the block
+</ParamField>
+
+<ParamField path="block" type="Block" required>
+  Block to place
+</ParamField>
+
+<ParamField path="update" type="bool" default="true">
+  Whether to send updates to clients
+</ParamField>
+
+```php
+// Example: Place a block
+use pocketmine\block\VanillaBlocks;
+
+$world->setBlock(new Vector3(100, 64, 100), VanillaBlocks::STONE());
+```
+
+---
+
+#### isInWorld
+
+```php
+public function isInWorld(int $x, int $y, int $z) : bool
+```
+
+Checks if coordinates are within valid world bounds.
+
+<ParamField path="x" type="int" required>
+  X coordinate
+</ParamField>
+
+<ParamField path="y" type="int" required>
+  Y coordinate
+</ParamField>
+
+<ParamField path="z" type="int" required>
+  Z coordinate
+</ParamField>
+
+---
+
+### Entity Management
+
+#### getEntity
+
+```php
+public function getEntity(int $entityId) : ?Entity
+```
+
+Gets an entity by its runtime ID.
+
+<ParamField path="entityId" type="int" required>
+  The entity's runtime ID
+</ParamField>
+
+<ResponseField name="return" type="Entity|null">
+  The entity, or null if not found
+</ResponseField>
+
+---
+
+#### getEntities
+
+```php
+public function getEntities() : array
+```
+
+Returns all entities in the world.
+
+<ResponseField name="return" type="Entity[]">
+  Array of all entities
+</ResponseField>
+
+---
+
+#### getNearbyEntities
+
+```php
+public function getNearbyEntities(AxisAlignedBB $bb, ?Entity $entity = null) : array
+```
+
+Gets entities within a bounding box.
+
+<ParamField path="bb" type="AxisAlignedBB" required>
+  The bounding box to search within
+</ParamField>
+
+<ParamField path="entity" type="Entity|null">
+  Entity to exclude from results
+</ParamField>
+
+<ResponseField name="return" type="Entity[]">
+  Entities within the bounding box
+</ResponseField>
+
+```php
+// Example: Find nearby entities
+use pocketmine\math\AxisAlignedBB;
+
+$bb = new AxisAlignedBB(
+    $pos->x - 5, $pos->y - 5, $pos->z - 5,
+    $pos->x + 5, $pos->y + 5, $pos->z + 5
+);
+$nearby = $world->getNearbyEntities($bb);
+foreach($nearby as $entity){
+    // Process nearby entities
+}
+```
+
+---
+
+### Player Management
+
+#### getPlayers
+
+```php
+public function getPlayers() : array
+```
+
+Returns all players currently in the world.
+
+<ResponseField name="return" type="Player[]">
+  Array of all players
+</ResponseField>
+
+```php
+// Example: Broadcast message to all players in world
+foreach($world->getPlayers() as $player){
+    $player->sendMessage("World event!");
+}
+```
+
+---
+
+### Time & Weather
+
+#### getTime
+
+```php
+public function getTime() : int
+```
+
+Returns the current world time.
+
+<ResponseField name="return" type="int">
+  Current time (0-23999)
+</ResponseField>
+
+---
+
+#### setTime
+
+```php
+public function setTime(int $time) : void
+```
+
+Sets the world time.
+
+<ParamField path="time" type="int" required>
+  Time value to set (0-23999)
+</ParamField>
+
+```php
+// Example: Set time to day
+$world->setTime(World::TIME_DAY);
+
+// Example: Set time to night
+$world->setTime(World::TIME_NIGHT);
+```
+
+---
+
+### Chunk Operations
+
+#### loadChunk
+
+```php
+public function loadChunk(int $chunkX, int $chunkZ) : ?Chunk
+```
+
+Loads a chunk at the specified coordinates.
+
+<ParamField path="chunkX" type="int" required>
+  Chunk X coordinate
+</ParamField>
+
+<ParamField path="chunkZ" type="int" required>
+  Chunk Z coordinate
+</ParamField>
+
+<ResponseField name="return" type="Chunk|null">
+  The loaded chunk, or null if unavailable
+</ResponseField>
+
+---
+
+#### isChunkLoaded
+
+```php
+public function isChunkLoaded(int $chunkX, int $chunkZ) : bool
+```
+
+Checks if a chunk is loaded.
+
+---
+
+### Effects & Sounds
+
+#### addSound
+
+```php
+public function addSound(Vector3 $pos, Sound $sound, ?array $players = null) : void
+```
+
+Plays a sound at the specified position.
+
+<ParamField path="pos" type="Vector3" required>
+  Position to play the sound
+</ParamField>
+
+<ParamField path="sound" type="Sound" required>
+  Sound to play
+</ParamField>
+
+<ParamField path="players" type="Player[]|null">
+  Specific players to play sound for (null = all viewers)
+</ParamField>
+
+```php
+// Example: Play a sound
+use pocketmine\world\sound\ClickSound;
+
+$world->addSound($player->getPosition(), new ClickSound());
+```
+
+---
+
+#### addParticle
+
+```php
+public function addParticle(Vector3 $pos, Particle $particle, ?array $players = null) : void
+```
+
+Spawns a particle at the specified position.
+
+<ParamField path="pos" type="Vector3" required>
+  Position to spawn the particle
+</ParamField>
+
+<ParamField path="particle" type="Particle" required>
+  Particle to spawn
+</ParamField>
+
+<ParamField path="players" type="Player[]|null">
+  Specific players to show particle to (null = all viewers)
+</ParamField>
+
+```php
+// Example: Spawn particles
+use pocketmine\world\particle\FlameParticle;
+
+$world->addParticle($pos, new FlameParticle());
+```
+
+---
+
+### World Data
+
+#### save
+
+```php
+public function save(bool $force = false) : void
+```
+
+Saves the world data to disk.
+
+<ParamField path="force" type="bool" default="false">
+  Whether to force save even if auto-save is disabled
+</ParamField>
+
+---
+
+## WorldManager Class
+
+Manages all loaded worlds on the server.
+
+**Namespace:** `pocketmine\world\WorldManager`
+
+### Core Methods
+
+#### getWorlds
+
+```php
+public function getWorlds() : array
+```
+
+Returns all loaded worlds.
+
+<ResponseField name="return" type="World[]">
+  Array of all loaded worlds indexed by world ID
+</ResponseField>
+
+```php
+// Example: List all worlds
+$worldManager = $server->getWorldManager();
+foreach($worldManager->getWorlds() as $world){
+    $server->getLogger()->info("World: " . $world->getDisplayName());
+}
+```
+
+---
+
+#### getDefaultWorld
+
+```php
+public function getDefaultWorld() : ?World
+```
+
+Returns the default world (spawn world).
+
+<ResponseField name="return" type="World|null">
+  The default world, or null if not set
+</ResponseField>
+
+---
+
+#### setDefaultWorld
+
+```php
+public function setDefaultWorld(?World $world) : void
+```
+
+Sets the default world.
+
+<ParamField path="world" type="World|null" required>
+  World to set as default, or null to unset
+</ParamField>
+
+---
+
+#### getWorldByName
+
+```php
+public function getWorldByName(string $name) : ?World
+```
+
+Finds a world by its folder name.
+
+<ParamField path="name" type="string" required>
+  Folder name of the world
+</ParamField>
+
+<ResponseField name="return" type="World|null">
+  The world, or null if not found
+</ResponseField>
+
+```php
+// Example: Get world by name
+$world = $server->getWorldManager()->getWorldByName("world");
+if($world !== null){
+    $player->teleport($world->getSafeSpawn());
+}
+```
+
+---
+
+#### isWorldLoaded
+
+```php
+public function isWorldLoaded(string $name) : bool
+```
+
+Checks if a world is loaded.
+
+<ParamField path="name" type="string" required>
+  Folder name of the world
+</ParamField>
+
+---
+
+#### loadWorld
+
+```php
+public function loadWorld(string $name, bool $autoUpgrade = false) : bool
+```
+
+Loads a world from the worlds folder.
+
+<ParamField path="name" type="string" required>
+  Folder name of the world to load
+</ParamField>
+
+<ParamField path="autoUpgrade" type="bool" default="false">
+  Whether to automatically upgrade old world formats
+</ParamField>
+
+<ResponseField name="return" type="bool">
+  True if the world was loaded successfully
+</ResponseField>
+
+```php
+// Example: Load a world
+$worldManager = $server->getWorldManager();
+if($worldManager->loadWorld("custom_world")){
+    $server->getLogger()->info("World loaded successfully!");
+}
+```
+
+---
+
+#### unloadWorld
+
+```php
+public function unloadWorld(World $world, bool $forceUnload = false) : bool
+```
+
+Unloads a world from memory.
+
+<ParamField path="world" type="World" required>
+  The world to unload
+</ParamField>
+
+<ParamField path="forceUnload" type="bool" default="false">
+  Whether to force unload (even if it's the default world)
+</ParamField>
+
+<ResponseField name="return" type="bool">
+  True if the world was unloaded successfully
+</ResponseField>
+
+---
+
+#### generateWorld
+
+```php
+public function generateWorld(string $name, WorldCreationOptions $options, bool $backgroundGeneration = true) : bool
+```
+
+Generates a new world.
+
+<ParamField path="name" type="string" required>
+  Name for the new world
+</ParamField>
+
+<ParamField path="options" type="WorldCreationOptions" required>
+  World generation options
+</ParamField>
+
+<ParamField path="backgroundGeneration" type="bool" default="true">
+  Whether to generate spawn area in background
+</ParamField>
+
+<ResponseField name="return" type="bool">
+  True if generation started successfully
+</ResponseField>
+
+```php
+// Example: Generate a new world
+use pocketmine\world\WorldCreationOptions;
+use pocketmine\world\generator\GeneratorManager;
+
+$options = WorldCreationOptions::create()
+    ->setGeneratorClass(GeneratorManager::getInstance()->getGenerator("flat")?->getGeneratorClass())
+    ->setSeed(12345);
+
+if($worldManager->generateWorld("my_flat_world", $options)){
+    $server->getLogger()->info("World generation started!");
+}
+```
+
+---
+
+#### isWorldGenerated
+
+```php
+public function isWorldGenerated(string $name) : bool
+```
+
+Checks if a world exists on disk.
+
+<ParamField path="name" type="string" required>
+  Folder name of the world
+</ParamField>
+
+---
+
+#### findEntity
+
+```php
+public function findEntity(int $entityId) : ?Entity
+```
+
+Searches all worlds for an entity with the specified ID.
+
+<ParamField path="entityId" type="int" required>
+  The entity runtime ID
+</ParamField>
+
+<ResponseField name="return" type="Entity|null">
+  The entity, or null if not found in any world
+</ResponseField>
+
+---
+
+### Auto-Save Configuration
+
+#### getAutoSave
+
+```php
+public function getAutoSave() : bool
+```
+
+Returns whether auto-save is enabled.
+
+---
+
+#### setAutoSave
+
+```php
+public function setAutoSave(bool $value) : void
+```
+
+Enables or disables auto-save for all worlds.
+
+<ParamField path="value" type="bool" required>
+  Whether to enable auto-save
+</ParamField>
+
+---
+
+#### getAutoSaveInterval
+
+```php
+public function getAutoSaveInterval() : int
+```
+
+Returns the auto-save interval in ticks.
+
+---
+
+#### setAutoSaveInterval
+
+```php
+public function setAutoSaveInterval(int $autoSaveTicks) : void
+```
+
+Sets the auto-save interval.
+
+<ParamField path="autoSaveTicks" type="int" required>
+  Interval in ticks between auto-saves
+</ParamField>
+
+---
+
+## Static Utility Methods
+
+### World::chunkHash
+
+```php
+public static function chunkHash(int $x, int $z) : int
+```
+
+Computes a hash for chunk coordinates.
+
+<ParamField path="x" type="int" required>
+  Chunk X coordinate
+</ParamField>
+
+<ParamField path="z" type="int" required>
+  Chunk Z coordinate
+</ParamField>
+
+<ResponseField name="return" type="int">
+  Hash value for the chunk coordinates
+</ResponseField>
+
+---
+
+### World::blockHash
+
+```php
+public static function blockHash(int $x, int $y, int $z) : int
+```
+
+Computes a hash for block coordinates.
+
+<ParamField path="x" type="int" required>
+  Block X coordinate
+</ParamField>
+
+<ParamField path="y" type="int" required>
+  Block Y coordinate
+</ParamField>
+
+<ParamField path="z" type="int" required>
+  Block Z coordinate
+</ParamField>
+
+<ResponseField name="return" type="int">
+  Hash value for the block coordinates
+</ResponseField>
+
+---
+
+## Common Usage Patterns
+
+### Teleporting Between Worlds
+
+```php
+use pocketmine\event\player\PlayerJoinEvent;
+
+public function onJoin(PlayerJoinEvent $event) : void{
+    $player = $event->getPlayer();
+    $worldManager = $this->getServer()->getWorldManager();
+    
+    $lobbyWorld = $worldManager->getWorldByName("lobby");
+    if($lobbyWorld !== null){
+        $player->teleport($lobbyWorld->getSafeSpawn());
+    }
+}
+```
+
+### Modifying Blocks in a Region
+
+```php
+use pocketmine\block\VanillaBlocks;
+
+public function fillRegion(World $world, Vector3 $pos1, Vector3 $pos2, Block $block) : void{
+    for($x = min($pos1->x, $pos2->x); $x <= max($pos1->x, $pos2->x); $x++){
+        for($y = min($pos1->y, $pos2->y); $y <= max($pos1->y, $pos2->y); $y++){
+            for($z = min($pos1->z, $pos2->z); $z <= max($pos1->z, $pos2->z); $z++){
+                $world->setBlock(new Vector3($x, $y, $z), $block);
+            }
+        }
+    }
+}
+
+// Usage
+$this->fillRegion(
+    $world, 
+    new Vector3(0, 64, 0), 
+    new Vector3(10, 74, 10), 
+    VanillaBlocks::STONE()
+);
+```
+
+### Working with Explosions
+
+```php
+use pocketmine\world\Explosion;
+
+public function createExplosion(World $world, Vector3 $center, float $size) : void{
+    $explosion = new Explosion($center, $size);
+    $explosion->explodeA();
+    $explosion->explodeB();
+}
+```

@@ -1,0 +1,445 @@
+---
+title: Utils API
+description: Utility classes for configuration, text formatting, and common operations
+---
+
+The `pocketmine\utils` namespace provides essential utility classes for plugin development, including configuration management, text formatting, random number generation, and various helper functions.
+
+## Config
+
+The `Config` class provides a simple interface for loading, reading, and writing configuration files in multiple formats.
+
+### Supported Formats
+
+<ParamField path="Config::DETECT" type="int" default="-1">
+  Auto-detect format by file extension
+</ParamField>
+
+<ParamField path="Config::PROPERTIES" type="int" default="0">
+  Java-style properties format (.properties, .cnf)
+</ParamField>
+
+<ParamField path="Config::JSON" type="int" default="1">
+  JSON format (.json, .js)
+</ParamField>
+
+<ParamField path="Config::YAML" type="int" default="2">
+  YAML format (.yml, .yaml)
+</ParamField>
+
+<ParamField path="Config::SERIALIZED" type="int" default="4">
+  PHP serialized format (.sl)
+</ParamField>
+
+<ParamField path="Config::ENUM" type="int" default="5">
+  Line-separated list format (.txt, .list, .enum)
+</ParamField>
+
+### Constructor
+
+```php
+new Config(string $file, int $type = Config::DETECT, array $default = [])
+```
+
+<ParamField path="$file" type="string" required>
+  Path to the configuration file
+</ParamField>
+
+<ParamField path="$type" type="int" default="Config::DETECT">
+  Configuration file format (use Config constants)
+</ParamField>
+
+<ParamField path="$default" type="array" default="[]">
+  Default values to write if the file doesn't exist
+</ParamField>
+
+### Reading Values
+
+```php
+// Get a value with optional default
+$value = $config->get("key", "default_value");
+
+// Get nested value using dot notation
+$value = $config->getNested("section.subsection.key", "default");
+
+// Get all config data
+$all = $config->getAll();
+
+// Check if key exists
+if ($config->exists("key")) {
+    // Key exists
+}
+```
+
+### Writing Values
+
+```php
+// Set a value
+$config->set("key", "value");
+
+// Set nested value using dot notation
+$config->setNested("section.subsection.key", "value");
+
+// Set multiple values at once
+$config->setAll([
+    "key1" => "value1",
+    "key2" => "value2"
+]);
+
+// Save changes to file
+$config->save();
+```
+
+### Removing Values
+
+```php
+// Remove a key
+$config->remove("key");
+
+// Remove nested key
+$config->removeNested("section.subsection.key");
+```
+
+### Other Methods
+
+```php
+// Reload from disk
+$config->reload();
+
+// Check if config has been modified
+if ($config->hasChanged()) {
+    $config->save();
+}
+
+// Get file path
+$path = $config->getPath();
+```
+
+### Example: Plugin Configuration
+
+```php
+namespace MyPlugin;
+
+use pocketmine\plugin\PluginBase;
+use pocketmine\utils\Config;
+
+class Main extends PluginBase {
+    private Config $config;
+    
+    public function onEnable() : void {
+        // Save default config from resources
+        $this->saveDefaultConfig();
+        
+        // Load config
+        $configPath = $this->getDataFolder() . "config.yml";
+        $this->config = new Config($configPath, Config::YAML, [
+            "max-players" => 100,
+            "enable-pvp" => true,
+            "spawn" => [
+                "x" => 0,
+                "y" => 64,
+                "z" => 0
+            ]
+        ]);
+        
+        // Read values
+        $maxPlayers = $this->config->get("max-players", 100);
+        $spawnX = $this->config->getNested("spawn.x", 0);
+        
+        // Modify and save
+        $this->config->set("last-startup", time());
+        $this->config->save();
+    }
+}
+```
+
+## TextFormat
+
+The `TextFormat` class provides color codes and text formatting for Minecraft chat and UI elements.
+
+### Color Codes
+
+```php
+use pocketmine\utils\TextFormat;
+
+// Basic colors
+TextFormat::BLACK        // §0
+TextFormat::DARK_BLUE    // §1
+TextFormat::DARK_GREEN   // §2
+TextFormat::DARK_AQUA    // §3
+TextFormat::DARK_RED     // §4
+TextFormat::DARK_PURPLE  // §5
+TextFormat::GOLD         // §6
+TextFormat::GRAY         // §7
+TextFormat::DARK_GRAY    // §8
+TextFormat::BLUE         // §9
+TextFormat::GREEN        // §a
+TextFormat::AQUA         // §b
+TextFormat::RED          // §c
+TextFormat::LIGHT_PURPLE // §d
+TextFormat::YELLOW       // §e
+TextFormat::WHITE        // §f
+```
+
+### Material Colors
+
+```php
+TextFormat::MINECOIN_GOLD      // §g
+TextFormat::MATERIAL_QUARTZ    // §h
+TextFormat::MATERIAL_IRON      // §i
+TextFormat::MATERIAL_NETHERITE // §j
+TextFormat::MATERIAL_REDSTONE  // §m
+TextFormat::MATERIAL_COPPER    // §n
+TextFormat::MATERIAL_GOLD      // §p
+TextFormat::MATERIAL_EMERALD   // §q
+TextFormat::MATERIAL_DIAMOND   // §s
+TextFormat::MATERIAL_LAPIS     // §t
+TextFormat::MATERIAL_AMETHYST  // §u
+TextFormat::MATERIAL_RESIN     // §v
+```
+
+### Formatting Codes
+
+```php
+TextFormat::OBFUSCATED // §k - Random characters
+TextFormat::BOLD       // §l - Bold text
+TextFormat::ITALIC     // §o - Italic text
+TextFormat::RESET      // §r - Reset all formatting
+```
+
+### Methods
+
+```php
+// Clean text of all formatting codes
+$clean = TextFormat::clean($text, $removeFormat = true);
+
+// Convert & color codes to §
+$formatted = TextFormat::colorize("&aGreen text", "&");
+
+// Split text by format tokens
+$tokens = TextFormat::tokenize($text);
+
+// Convert to HTML
+$html = TextFormat::toHTML($text);
+
+// Add base formatting (useful for logs)
+$withBase = TextFormat::addBase(TextFormat::BLUE, "Info: " . $message);
+
+// Convert Java formatting to Bedrock
+$bedrock = TextFormat::javaToBedrock($javaText);
+```
+
+### Example: Colored Messages
+
+```php
+use pocketmine\utils\TextFormat as TF;
+
+// Simple colored message
+$player->sendMessage(TF::GREEN . "Welcome to the server!");
+
+// Multiple colors
+$player->sendMessage(TF::GOLD . "[" . TF::RED . "WARNING" . TF::GOLD . "] " . TF::WHITE . "Low health!");
+
+// Using colorize for easier syntax
+$msg = TF::colorize("&a[Server] &fWelcome, &e" . $player->getName());
+$player->sendMessage($msg);
+
+// Format with reset
+$player->sendMessage(TF::BOLD . TF::RED . "IMPORTANT" . TF::RESET . " Regular text");
+```
+
+## Utils
+
+The `Utils` class provides a collection of useful utility functions.
+
+### System Information
+
+```php
+use pocketmine\utils\Utils;
+
+// Get operating system
+$os = Utils::getOS(); // Returns OS_WINDOWS, OS_LINUX, OS_MACOS, etc.
+
+// Get CPU core count
+$cores = Utils::getCoreCount();
+
+// Get machine unique ID
+$uuid = Utils::getMachineUniqueId();
+```
+
+### String and Data Operations
+
+```php
+// Validate UTF-8 encoding
+Utils::checkUTF8($string); // Throws exception if invalid
+
+// Get printable string (replaces non-printable chars)
+$printable = Utils::printable($mixed);
+
+// Hexdump for debugging
+$dump = Utils::hexdump($binaryData);
+
+// Java string hash (for compatibility)
+$hash = Utils::javaStringHash($string);
+```
+
+### Array Utilities
+
+```php
+// Iterate array with string keys (fixes PHP numeric string issue)
+foreach (Utils::stringifyKeys($array) as $key => $value) {
+    // $key is guaranteed to be a string
+}
+
+// Promote keys for proper type checking
+$array = Utils::promoteKeys($array);
+
+// Clone array of objects
+$cloned = Utils::cloneObjectArray($objectArray);
+```
+
+### Validation
+
+```php
+// Check float is not NaN or infinite
+Utils::checkFloatNotInfOrNaN("health", $health);
+
+// Check Vector3 is valid
+Utils::checkVector3NotInfOrNaN($position);
+
+// Validate callable signature matches expected signature
+Utils::validateCallableSignature($expectedSignature, $callback);
+```
+
+### Debug and Stack Traces
+
+```php
+// Get current stack trace
+$trace = Utils::currentTrace($skipFrames = 0);
+
+// Get printable trace
+$lines = Utils::printableTrace($trace);
+
+// Print exception info
+$info = Utils::printableExceptionInfo($exception);
+foreach ($info as $line) {
+    $this->getLogger()->error($line);
+}
+```
+
+## Random
+
+Fast seeded random number generator using XorShift128.
+
+### Constructor
+
+```php
+use pocketmine\utils\Random;
+
+// Create with automatic seed (current time)
+$random = new Random();
+
+// Create with specific seed
+$random = new Random(12345);
+```
+
+### Methods
+
+```php
+// Get/set seed
+$seed = $random->getSeed();
+$random->setSeed(67890);
+
+// Generate random integer (0 to 2147483647)
+$int = $random->nextInt();
+
+// Generate signed integer (-2147483648 to 2147483647)
+$signedInt = $random->nextSignedInt();
+
+// Generate float between 0.0 and 1.0
+$float = $random->nextFloat();
+
+// Generate float between -1.0 and 1.0
+$signedFloat = $random->nextSignedFloat();
+
+// Generate random boolean
+$bool = $random->nextBoolean();
+
+// Generate integer in range
+$value = $random->nextRange(1, 100); // 1 to 100 inclusive
+
+// Generate integer with upper bound
+$bounded = $random->nextBoundedInt(10); // 0 to 9
+```
+
+### Example: Random World Generation
+
+```php
+use pocketmine\utils\Random;
+
+class ChunkGenerator {
+    private Random $random;
+    
+    public function __construct(int $seed) {
+        $this->random = new Random($seed);
+    }
+    
+    public function generateChunk(int $chunkX, int $chunkZ) : void {
+        // Set seed based on chunk coordinates
+        $this->random->setSeed($chunkX * 31 + $chunkZ);
+        
+        // Generate random terrain features
+        for ($x = 0; $x < 16; $x++) {
+            for ($z = 0; $z < 16; $z++) {
+                $height = $this->random->nextRange(50, 80);
+                
+                // 30% chance for tree
+                if ($this->random->nextFloat() < 0.3) {
+                    $this->placeTree($x, $height, $z);
+                }
+            }
+        }
+    }
+}
+```
+
+## Additional Utilities
+
+### Filesystem
+
+```php
+use pocketmine\utils\Filesystem;
+
+// Safe file read
+$content = Filesystem::fileGetContents($path);
+
+// Safe file write
+Filesystem::safeFilePutContents($path, $content);
+
+// Clean path
+$clean = Filesystem::cleanPath($path);
+```
+
+### Internet
+
+```php
+use pocketmine\utils\Internet;
+
+// Make HTTP request
+Internet::getURL($url, $timeout = 10, $headers = [], $err = null, $body = null, $method = "GET");
+
+// Post data
+Internet::postURL($url, $args, $timeout = 10, $headers = []);
+```
+
+### Binary
+
+```php
+use pocketmine\utils\Binary;
+
+// Read/write various data types from binary streams
+$short = Binary::readShort($str);
+$int = Binary::readInt($str);
+$long = Binary::readLong($str);
+$float = Binary::readFloat($str);
+```

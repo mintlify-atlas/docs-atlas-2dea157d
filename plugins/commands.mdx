@@ -1,0 +1,610 @@
+---
+title: Commands
+description: Creating and registering custom commands in PocketMine-MP
+---
+
+Commands allow players and the console to interact with your plugin. This guide covers creating commands in plugin.yml and programmatically.
+
+## Command Registration Methods
+
+There are two ways to create commands:
+
+1. **plugin.yml** - Simple commands (recommended for most use cases)
+2. **Programmatic** - Advanced commands with custom behavior
+
+## Method 1: plugin.yml Commands
+
+The easiest way to create commands is to declare them in `plugin.yml`.
+
+<Steps>
+
+<Step title="Declare command in plugin.yml">
+
+```yaml plugin.yml
+name: MyPlugin
+version: 1.0.0
+main: MyPlugin\Main
+api: [5.0.0]
+
+commands:
+  heal:
+    description: Heal yourself or another player
+    usage: /heal [player]
+    aliases: [hp, health]
+    permission: myplugin.command.heal
+    permission-message: §cYou don't have permission to use this command
+
+permissions:
+  myplugin.command.heal:
+    description: Allows using /heal command
+    default: op
+```
+
+<Warning>
+In API 5.0+, all commands MUST have a `permission` field. This is a security requirement.
+</Warning>
+
+</Step>
+
+<Step title="Implement onCommand()">
+
+Handle the command in your main class:
+
+```php src/MyPlugin/Main.php
+<?php
+
+declare(strict_types=1);
+
+namespace MyPlugin;
+
+use pocketmine\plugin\PluginBase;
+use pocketmine\command\Command;
+use pocketmine\command\CommandSender;
+use pocketmine\player\Player;
+
+class Main extends PluginBase {
+    
+    public function onCommand(
+        CommandSender $sender, 
+        Command $command, 
+        string $label, 
+        array $args
+    ) : bool {
+        
+        switch($command->getName()) {
+            case "heal":
+                return $this->handleHeal($sender, $args);
+        }
+        
+        return false;
+    }
+    
+    private function handleHeal(CommandSender $sender, array $args) : bool {
+        // Only players can be healed
+        if(!$sender instanceof Player) {
+            $sender->sendMessage("§cOnly players can use this command");
+            return true;
+        }
+        
+        // Heal the sender
+        if(count($args) === 0) {
+            $sender->setHealth($sender->getMaxHealth());
+            $sender->sendMessage("§aYou have been healed!");
+            return true;
+        }
+        
+        // Heal another player
+        if(count($args) === 1) {
+            $target = $this->getServer()->getPlayerByPrefix($args[0]);
+            
+            if($target === null) {
+                $sender->sendMessage("§cPlayer not found: " . $args[0]);
+                return true;
+            }
+            
+            $target->setHealth($target->getMaxHealth());
+            $target->sendMessage("§aYou have been healed by " . $sender->getName());
+            $sender->sendMessage("§aHealed " . $target->getName());
+            return true;
+        }
+        
+        // Too many arguments - return false to show usage
+        return false;
+    }
+}
+```
+
+<Note>
+Return `true` if the command was handled (even if there was an error). Return `false` to show the usage message.
+</Note>
+
+</Step>
+
+</Steps>
+
+## Method 2: Programmatic Commands
+
+For more control, create a custom Command class:
+
+<Steps>
+
+<Step title="Create a Command class">
+
+```php src/MyPlugin/commands/FlyCommand.php
+<?php
+
+declare(strict_types=1);
+
+namespace MyPlugin\commands;
+
+use pocketmine\command\Command;
+use pocketmine\command\CommandSender;
+use pocketmine\player\Player;
+use pocketmine\plugin\Plugin;
+use pocketmine\plugin\PluginOwned;
+use MyPlugin\Main;
+
+class FlyCommand extends Command implements PluginOwned {
+    
+    public function __construct(
+        private Main $plugin
+    ){
+        parent::__construct(
+            "fly",
+            "Toggle flight mode",
+            "/fly [player]",
+            ["flight"]
+        );
+        
+        $this->setPermission("myplugin.command.fly");
+        $this->setPermissionMessage("§cYou don't have permission");
+    }
+    
+    public function execute(
+        CommandSender $sender, 
+        string $commandLabel, 
+        array $args
+    ) : bool {
+        
+        if(!$sender instanceof Player) {
+            $sender->sendMessage("§cOnly players can use this command");
+            return true;
+        }
+        
+        // Toggle own flight
+        if(count($args) === 0) {
+            $sender->setAllowFlight(!$sender->getAllowFlight());
+            $sender->sendMessage(
+                $sender->getAllowFlight() 
+                    ? "§aFlight enabled" 
+                    : "§cFlight disabled"
+            );
+            return true;
+        }
+        
+        // Toggle another player's flight
+        if(count($args) === 1) {
+            if(!$sender->hasPermission("myplugin.command.fly.other")) {
+                $sender->sendMessage("§cYou can't change others' flight");
+                return true;
+            }
+            
+            $target = $this->plugin->getServer()->getPlayerByPrefix($args[0]);
+            if($target === null) {
+                $sender->sendMessage("§cPlayer not found");
+                return true;
+            }
+            
+            $target->setAllowFlight(!$target->getAllowFlight());
+            $sender->sendMessage(
+                "§aToggled flight for " . $target->getName()
+            );
+            return true;
+        }
+        
+        return false;
+    }
+    
+    public function getOwningPlugin() : Plugin {
+        return $this->plugin;
+    }
+}
+```
+
+</Step>
+
+<Step title="Register the command">
+
+Register in your main class's `onEnable()`:
+
+```php
+protected function onEnable() : void {
+    $commandMap = $this->getServer()->getCommandMap();
+    $commandMap->register("myplugin", new FlyCommand($this));
+}
+```
+
+</Step>
+
+</Steps>
+
+## Command Arguments
+
+Access command arguments through the `$args` array:
+
+```php
+public function onCommand(
+    CommandSender $sender,
+    Command $command,
+    string $label,
+    array $args
+) : bool {
+    
+    // /mycommand arg1 arg2 arg3
+    // $args = ["arg1", "arg2", "arg3"]
+    
+    if(count($args) < 2) {
+        $sender->sendMessage("Usage: /mycommand <name> <value>");
+        return false;
+    }
+    
+    $name = $args[0];   // First argument
+    $value = $args[1];  // Second argument
+    
+    // Join all arguments into one string
+    $message = implode(" ", $args);
+    
+    return true;
+}
+```
+
+### Parsing Arguments
+
+```php
+// Check argument count
+if(count($args) === 0) {
+    $sender->sendMessage("Not enough arguments");
+    return false;
+}
+
+// Parse integer
+if(!is_numeric($args[0])) {
+    $sender->sendMessage("§cAmount must be a number");
+    return true;
+}
+$amount = (int) $args[0];
+
+// Parse player name
+$player = $this->getServer()->getPlayerByPrefix($args[0]);
+if($player === null) {
+    $sender->sendMessage("§cPlayer not found: " . $args[0]);
+    return true;
+}
+
+// Optional argument with default
+$page = isset($args[0]) ? (int) $args[0] : 1;
+```
+
+## CommandSender Types
+
+Commands can be executed by different senders:
+
+```php
+use pocketmine\command\CommandSender;
+use pocketmine\player\Player;
+use pocketmine\console\ConsoleCommandSender;
+
+public function onCommand(
+    CommandSender $sender,
+    Command $command,
+    string $label,
+    array $args
+) : bool {
+    
+    // Check if sender is a player
+    if($sender instanceof Player) {
+        $sender->sendMessage("You are a player!");
+        $sender->setHealth(20);
+    }
+    
+    // Check if sender is console
+    elseif($sender instanceof ConsoleCommandSender) {
+        $sender->sendMessage("You are the console!");
+    }
+    
+    // Works for both players and console
+    $sender->sendMessage("This works for anyone");
+    
+    return true;
+}
+```
+
+### Requiring Player Sender
+
+```php
+public function onCommand(
+    CommandSender $sender,
+    Command $command,
+    string $label,
+    array $args
+) : bool {
+    
+    if(!$sender instanceof Player) {
+        $sender->sendMessage("§cThis command can only be used in-game");
+        return true;
+    }
+    
+    // Now we know $sender is a Player
+    $sender->setHealth($sender->getMaxHealth());
+    
+    return true;
+}
+```
+
+## Permission Checking
+
+Permissions are checked automatically, but you can add custom checks:
+
+```php
+public function onCommand(
+    CommandSender $sender,
+    Command $command,
+    string $label,
+    array $args
+) : bool {
+    
+    // Check specific permission
+    if(!$sender->hasPermission("myplugin.vip")) {
+        $sender->sendMessage("§cYou need VIP rank!");
+        return true;
+    }
+    
+    // Check if sender is OP
+    if(!$sender->getServer()->isOp($sender->getName())) {
+        $sender->sendMessage("§cYou must be OP");
+        return true;
+    }
+    
+    return true;
+}
+```
+
+## Subcommands
+
+Implement subcommands using the first argument:
+
+```php
+public function onCommand(
+    CommandSender $sender,
+    Command $command,
+    string $label,
+    array $args
+) : bool {
+    
+    if(count($args) === 0) {
+        $sender->sendMessage("§eAvailable subcommands:");
+        $sender->sendMessage("§e/myplugin help");
+        $sender->sendMessage("§e/myplugin reload");
+        $sender->sendMessage("§e/myplugin info");
+        return true;
+    }
+    
+    switch(strtolower($args[0])) {
+        case "help":
+            return $this->handleHelp($sender);
+            
+        case "reload":
+            if(!$sender->hasPermission("myplugin.admin")) {
+                $sender->sendMessage("§cNo permission");
+                return true;
+            }
+            return $this->handleReload($sender);
+            
+        case "info":
+            return $this->handleInfo($sender);
+            
+        default:
+            $sender->sendMessage("§cUnknown subcommand: " . $args[0]);
+            return true;
+    }
+}
+
+private function handleHelp(CommandSender $sender) : bool {
+    $sender->sendMessage("§ePlugin Help:");
+    $sender->sendMessage("§e- /myplugin reload: Reload config");
+    return true;
+}
+
+private function handleReload(CommandSender $sender) : bool {
+    $this->reloadConfig();
+    $sender->sendMessage("§aConfig reloaded!");
+    return true;
+}
+
+private function handleInfo(CommandSender $sender) : bool {
+    $sender->sendMessage("§ePlugin Info:");
+    $sender->sendMessage("§eVersion: " . $this->getDescription()->getVersion());
+    return true;
+}
+```
+
+## Advanced Example: Teleport Command
+
+<CodeGroup>
+
+```yaml plugin.yml
+commands:
+  teleport:
+    description: Teleport to a player or coordinates
+    usage: /teleport <player|x y z> [target]
+    aliases: [tp]
+    permission: myplugin.command.teleport
+
+permissions:
+  myplugin.command.teleport:
+    description: Use /teleport
+    default: op
+  myplugin.command.teleport.others:
+    description: Teleport other players
+    default: op
+```
+
+```php Main.php
+public function onCommand(
+    CommandSender $sender,
+    Command $command,
+    string $label,
+    array $args
+) : bool {
+    
+    if($command->getName() === "teleport") {
+        return $this->handleTeleport($sender, $args);
+    }
+    
+    return false;
+}
+
+private function handleTeleport(CommandSender $sender, array $args) : bool {
+    if(!$sender instanceof Player) {
+        $sender->sendMessage("§cOnly players can teleport");
+        return true;
+    }
+    
+    if(count($args) === 0) {
+        return false; // Show usage
+    }
+    
+    // /tp <player> - Teleport to player
+    if(count($args) === 1) {
+        $target = $this->getServer()->getPlayerByPrefix($args[0]);
+        if($target === null) {
+            $sender->sendMessage("§cPlayer not found");
+            return true;
+        }
+        
+        $sender->teleport($target->getLocation());
+        $sender->sendMessage("§aTeleported to " . $target->getName());
+        return true;
+    }
+    
+    // /tp <x> <y> <z> - Teleport to coordinates
+    if(count($args) === 3) {
+        if(!is_numeric($args[0]) || !is_numeric($args[1]) || !is_numeric($args[2])) {
+            $sender->sendMessage("§cCoordinates must be numbers");
+            return true;
+        }
+        
+        $x = (float) $args[0];
+        $y = (float) $args[1];
+        $z = (float) $args[2];
+        
+        $world = $sender->getWorld();
+        $location = new \pocketmine\world\Position($x, $y, $z, $world);
+        
+        $sender->teleport($location);
+        $sender->sendMessage("§aTeleported to $x, $y, $z");
+        return true;
+    }
+    
+    // /tp <player> <target> - Teleport player to target
+    if(count($args) === 2) {
+        if(!$sender->hasPermission("myplugin.command.teleport.others")) {
+            $sender->sendMessage("§cYou can't teleport others");
+            return true;
+        }
+        
+        $player = $this->getServer()->getPlayerByPrefix($args[0]);
+        $target = $this->getServer()->getPlayerByPrefix($args[1]);
+        
+        if($player === null || $target === null) {
+            $sender->sendMessage("§cPlayer not found");
+            return true;
+        }
+        
+        $player->teleport($target->getLocation());
+        $sender->sendMessage("§aTeleported {$player->getName()} to {$target->getName()}");
+        return true;
+    }
+    
+    return false;
+}
+```
+
+</CodeGroup>
+
+## Command Aliases
+
+Aliases provide alternative names for commands:
+
+```yaml plugin.yml
+commands:
+  gamemode:
+    description: Change gamemode
+    usage: /gamemode <mode> [player]
+    aliases: [gm, mode]
+    permission: myplugin.command.gamemode
+```
+
+Players can now use:
+- `/gamemode survival`
+- `/gm survival`
+- `/mode survival`
+
+All execute the same command.
+
+## Overriding Default Commands
+
+You can override default server commands:
+
+```php
+protected function onEnable() : void {
+    $commandMap = $this->getServer()->getCommandMap();
+    
+    // Unregister default /kill command
+    $oldCommand = $commandMap->getCommand("kill");
+    if($oldCommand !== null) {
+        $commandMap->unregister($oldCommand);
+    }
+    
+    // Register custom /kill
+    $commandMap->register("myplugin", new CustomKillCommand($this));
+}
+```
+
+<Warning>
+Overriding default commands can confuse players. Use this feature carefully.
+</Warning>
+
+## Console Commands
+
+Commands can be executed from console:
+
+```php
+$this->getServer()->dispatchCommand(
+    $this->getServer()->getConsoleSender(),
+    "say Hello from plugin!"
+);
+```
+
+Execute as a player:
+
+```php
+$player->getServer()->dispatchCommand(
+    $player,
+    "heal " . $player->getName()
+);
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Scheduling" icon="clock" href="/plugins/scheduling">
+Schedule tasks and repeating timers
+</Card>
+
+<Card title="Configuration" icon="file-code" href="/plugins/configuration">
+Manage plugin settings
+</Card>
+
+</CardGroup>

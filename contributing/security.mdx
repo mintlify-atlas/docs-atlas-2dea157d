@@ -1,0 +1,104 @@
+---
+title: Security Policy
+description: How to report security vulnerabilities in PocketMine-MP
+---
+
+## Reporting a Vulnerability
+
+If you discover a security vulnerability in PocketMine-MP, please report it responsibly. There are two ways to report security issues:
+
+### Report via GitHub
+
+Send a **private security report** by going to https://github.com/pmmp/PocketMine-MP/security and clicking the "Report a vulnerability" button.
+
+<Warning>
+**DO NOT report vulnerabilities on the Issues tab. Report them in the Security tab ONLY.**
+
+The issue tracker is public to view, which means that malicious actors may learn about exploits from a public issue.
+
+**You may put live PocketMine-MP servers at risk by reporting a vulnerability on the GitHub issue tracker.**
+</Warning>
+
+### Report via Email
+
+If you can't or don't want to use the GitHub system, you can also contact us by sending an email to [**security@pmmp.io**](mailto:security@pmmp.io).
+
+Include the following information:
+
+- Version of PocketMine-MP
+- Detailed description of the vulnerability (e.g. how to exploit it, what the effects are)
+- Your GitHub username, if you wish to be credited for reporting the problem in the security advisory
+
+<Note>
+Please note that we can't guarantee a reply to every email.
+</Note>
+
+## Reporting Process
+
+<Steps>
+  <Step title="Identify the vulnerability">
+    Confirm that you've found a genuine security issue that could compromise server security or stability.
+  </Step>
+
+  <Step title="Gather details">
+    Collect information about:
+    - Which version(s) are affected
+    - How to reproduce the vulnerability
+    - What the potential impact is
+    - Steps to exploit the vulnerability
+  </Step>
+
+  <Step title="Report privately">
+    Submit your report via GitHub Security tab or email to security@pmmp.io. **Do not** create a public issue.
+  </Step>
+
+  <Step title="Wait for response">
+    The team will review your report and may reach out for additional information.
+  </Step>
+</Steps>
+
+## FAQ
+
+### Do you offer a bug bounty?
+
+No, PocketMine-MP does not offer a bug bounty program.
+
+### How soon can I expect a fix for a vulnerability I've reported?
+
+This depends on the nature of the problem. We can't provide any general ETA (nor would it be wise to provide one).
+
+In general, it depends on:
+- When developers have time to look into the problem
+- How complex the problem is to fix
+- How many users it impacts
+
+When a fix for a severe vulnerability is pushed, a patch release for the target version will usually be released within 24 hours so that users can update.
+
+### Why can't I report security issues publicly?
+
+Public disclosure of security vulnerabilities puts all PocketMine-MP servers at risk. Malicious actors monitor public issue trackers and can exploit vulnerabilities before server owners have a chance to update.
+
+By reporting privately, you give the development team time to:
+- Verify and understand the vulnerability
+- Develop and test a fix
+- Release a patch
+- Allow server owners time to update
+
+Only after a fix is available and servers have had time to update should the vulnerability be disclosed publicly.
+
+## Responsible Disclosure
+
+We follow responsible disclosure practices:
+
+1. **Report received**: We acknowledge receipt of your security report
+2. **Investigation**: We verify and investigate the issue
+3. **Fix development**: We develop and test a fix
+4. **Release**: We release a patch version
+5. **Disclosure**: After servers have had time to update, we may publish a security advisory
+
+We ask that you:
+
+- Give us reasonable time to fix the vulnerability before public disclosure
+- Do not exploit the vulnerability beyond what's necessary to demonstrate it
+- Do not access or modify data that doesn't belong to you
+- Make a good faith effort to avoid privacy violations and service disruption

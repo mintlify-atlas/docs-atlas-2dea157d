@@ -1,0 +1,513 @@
+---
+title: Docker Setup
+description: Run PocketMine-MP in a Docker container with all dependencies included
+---
+
+# Docker Setup
+
+Docker is an easy, safe way to run PocketMine-MP in a container where it can't affect anything else on your machine. You don't need to build any dependencies, and updating is as simple as changing the version number of the image you're using.
+
+## Why Use Docker?
+
+<CardGroup cols={2}>
+  <Card title="Isolation" icon="shield">
+    Server runs in an isolated container, protecting your host system
+  </Card>
+  <Card title="Easy Updates" icon="arrows-rotate">
+    Update by pulling a new image version - no manual rebuilding
+  </Card>
+  <Card title="Consistency" icon="check">
+    Same environment on any machine - no dependency issues
+  </Card>
+  <Card title="Quick Setup" icon="bolt">
+    Get running in minutes without complex installation
+  </Card>
+</CardGroup>
+
+## Prerequisites
+
+Install Docker on your system:
+
+<CodeGroup>
+```bash Ubuntu/Debian
+sudo apt-get update
+sudo apt-get install docker.io
+sudo systemctl start docker
+sudo systemctl enable docker
+```
+
+```bash CentOS/RHEL
+sudo yum install docker
+sudo systemctl start docker
+sudo systemctl enable docker
+```
+
+```bash macOS
+# Download and install Docker Desktop from:
+# https://docs.docker.com/desktop/install/mac-install/
+```
+
+```powershell Windows
+# Download and install Docker Desktop from:
+# https://docs.docker.com/desktop/install/windows-install/
+```
+</CodeGroup>
+
+<Note>
+  For detailed installation instructions, refer to the [official Docker documentation](https://docs.docker.com/engine/install/).
+</Note>
+
+## Quick Start
+
+<Steps>
+  <Step title="Create Directories">
+    Create directories for server data and plugins:
+    
+    ```bash
+    mkdir -p ~/pocketmine/data ~/pocketmine/plugins
+    cd ~/pocketmine
+    ```
+  </Step>
+  
+  <Step title="Set Permissions">
+    Set proper ownership (UID/GID 1000):
+    
+    ```bash
+    sudo chown -R 1000:1000 data plugins
+    ```
+    
+    <Warning>
+      This step is crucial! The container runs as user `pocketmine` (UID 1000), and will fail to access files owned by other users.
+    </Warning>
+  </Step>
+  
+  <Step title="Run Container">
+    Start PocketMine-MP using the official Docker image:
+    
+    ```bash
+    docker run -it -p 19132:19132/udp \
+      -v $PWD/data:/data \
+      -v $PWD/plugins:/plugins \
+      ghcr.io/pmmp/pocketmine-mp
+    ```
+  </Step>
+  
+  <Step title="Complete Setup">
+    Follow the setup wizard in the container console, then connect to `localhost:19132` from Minecraft!
+  </Step>
+</Steps>
+
+## Understanding the Run Command
+
+Let's break down the Docker run command:
+
+```bash
+docker run -it -p 19132:19132/udp \
+  -v $PWD/data:/data \
+  -v $PWD/plugins:/plugins \
+  ghcr.io/pmmp/pocketmine-mp
+```
+
+- `-it` - Interactive terminal (allows console input)
+- `-p 19132:19132/udp` - Map UDP port 19132 from container to host
+- `-v $PWD/data:/data` - Mount local `data` directory to container `/data`
+- `-v $PWD/plugins:/plugins` - Mount local `plugins` directory to container `/plugins`
+- `ghcr.io/pmmp/pocketmine-mp` - Official PocketMine-MP image from GitHub Container Registry
+
+## Running a Specific Version
+
+To run a specific PocketMine-MP version, append the version tag:
+
+```bash
+# Run version 5.0.0
+docker run -it -p 19132:19132/udp \
+  -v $PWD/data:/data \
+  -v $PWD/plugins:/plugins \
+  ghcr.io/pmmp/pocketmine-mp:5.0.0
+
+# Run latest stable release
+docker run -it -p 19132:19132/udp \
+  -v $PWD/data:/data \
+  -v $PWD/plugins:/plugins \
+  ghcr.io/pmmp/pocketmine-mp:latest
+```
+
+<Info>
+  View available tags at [ghcr.io/pmmp/pocketmine-mp](https://github.com/pmmp/PocketMine-MP/pkgs/container/pocketmine-mp)
+</Info>
+
+## Running in Background (Detached Mode)
+
+To run the server in the background:
+
+```bash
+docker run -itd -p 19132:19132/udp \
+  -v $PWD/data:/data \
+  -v $PWD/plugins:/plugins \
+  --name pocketmine \
+  ghcr.io/pmmp/pocketmine-mp
+```
+
+The `-d` flag runs the container in detached mode, and `--name pocketmine` gives it a friendly name.
+
+### Managing Background Containers
+
+```bash
+# List running containers
+docker ps
+
+# View container logs
+docker logs pocketmine
+
+# View real-time logs
+docker logs -f pocketmine
+
+# View last 100 lines
+docker logs --tail=100 pocketmine
+
+# Attach to container console
+docker attach pocketmine
+
+# Stop the container
+docker stop pocketmine
+
+# Start stopped container
+docker start pocketmine
+
+# Restart container
+docker restart pocketmine
+
+# Remove container
+docker rm pocketmine
+```
+
+<Tip>
+  To detach from an attached console without stopping the server, press `Ctrl+P` then `Ctrl+Q`.
+</Tip>
+
+## Changing Server Port
+
+Docker allows you to map ports, so you don't need to edit `server.properties`.
+
+To run on a different port:
+
+```bash
+# Run on port 25565 instead of 19132
+docker run -it -p 25565:19132/udp \
+  -v $PWD/data:/data \
+  -v $PWD/plugins:/plugins \
+  ghcr.io/pmmp/pocketmine-mp
+```
+
+In the format `<host-port>:19132/udp`:
+- Change `<host-port>` to your desired port
+- **Never change** the second port (19132) - this is the internal container port
+
+<Warning>
+  Do not change the port in `server.properties` when using Docker. This is unnecessary and will make things more complicated.
+</Warning>
+
+## Managing Server Data
+
+### Directory Structure
+
+Your mounted `data` directory contains:
+
+```
+data/
+├── server.properties      # Server configuration
+├── pocketmine.yml         # PocketMine-MP settings
+├── ops.txt                # Operator list
+├── white-list.txt         # Whitelist
+├── banned-players.txt     # Banned players
+├── banned-ips.txt         # Banned IPs
+├── players/               # Player data
+├── worlds/                # World files
+│   └── world/
+└── plugin_data/           # Plugin configurations
+```
+
+All these files can be edited on your host system.
+
+### Editing Configuration
+
+```bash
+# Edit server.properties
+nano data/server.properties
+
+# Edit pocketmine.yml
+nano data/pocketmine.yml
+
+# Changes take effect after restart
+docker restart pocketmine
+```
+
+<Note>
+  Remember to set proper file ownership after adding files:
+  ```bash
+  sudo chown -R 1000:1000 data/new-file
+  ```
+</Note>
+
+## Managing Plugins
+
+### Installing Plugins Manually
+
+<Steps>
+  <Step title="Download Plugin">
+    Download a `.phar` file from [Poggit](https://poggit.pmmp.io/plugins)
+  </Step>
+  
+  <Step title="Copy to Plugins Directory">
+    ```bash
+    cp DownloadedPlugin.phar plugins/
+    ```
+  </Step>
+  
+  <Step title="Fix Permissions">
+    ```bash
+    sudo chown 1000:1000 plugins/DownloadedPlugin.phar
+    ```
+  </Step>
+  
+  <Step title="Restart Server">
+    ```bash
+    docker restart pocketmine
+    ```
+  </Step>
+</Steps>
+
+### Auto-Installing Plugins from Poggit
+
+Use the `POCKETMINE_PLUGINS` environment variable to automatically download plugins on startup:
+
+```bash
+docker run -it -p 19132:19132/udp \
+  -v $PWD/data:/data \
+  -v $PWD/plugins:/plugins \
+  -e POCKETMINE_PLUGINS="EconomyAPI:5.7.2 PurePerms PureChat:1.4.11" \
+  ghcr.io/pmmp/pocketmine-mp
+```
+
+Format: `PluginName:Version PluginName PluginName:Version`
+
+- Plugin name is required
+- Version is optional (latest if omitted)
+- Separate multiple plugins with spaces
+
+<Warning>
+  Plugins are only downloaded if they don't already exist in `/plugins`. To update a plugin, delete the old `.phar` file first.
+</Warning>
+
+## Advanced Configuration
+
+### Passing Arguments to PocketMine-MP
+
+Use the `POCKETMINE_ARGS` environment variable:
+
+```bash
+docker run -it -p 19132:19132/udp \
+  -v $PWD/data:/data \
+  -v $PWD/plugins:/plugins \
+  -e POCKETMINE_ARGS="--debug.level=2" \
+  ghcr.io/pmmp/pocketmine-mp
+```
+
+Common arguments:
+- `--debug.level=2` - Enable debug logging
+- `--no-wizard` - Skip setup wizard
+- `--enable-ansi` - Enable ANSI colors (enabled by default in container)
+
+### Using Docker Compose
+
+Create `docker-compose.yml` for easier management:
+
+```yaml docker-compose.yml
+version: '3.8'
+
+services:
+  pocketmine:
+    image: ghcr.io/pmmp/pocketmine-mp:latest
+    container_name: pocketmine
+    stdin_open: true
+    tty: true
+    ports:
+      - "19132:19132/udp"
+    volumes:
+      - ./data:/data
+      - ./plugins:/plugins
+    environment:
+      - POCKETMINE_PLUGINS=EconomyAPI PurePerms
+      - POCKETMINE_ARGS=--debug.level=1
+    restart: unless-stopped
+```
+
+Manage with Docker Compose:
+
+```bash
+# Start server
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop server
+docker-compose down
+
+# Restart server
+docker-compose restart
+```
+
+### Resource Limits
+
+Limit container resources:
+
+```bash
+docker run -it -p 19132:19132/udp \
+  -v $PWD/data:/data \
+  -v $PWD/plugins:/plugins \
+  --memory="2g" \
+  --cpus="2.0" \
+  ghcr.io/pmmp/pocketmine-mp
+```
+
+- `--memory="2g"` - Limit to 2GB RAM
+- `--cpus="2.0"` - Limit to 2 CPU cores
+
+## Building Custom Docker Image
+
+To build your own Docker image from source:
+
+<Steps>
+  <Step title="Clone Repository">
+    ```bash
+    git clone https://github.com/pmmp/PocketMine-MP.git
+    cd PocketMine-MP
+    ```
+  </Step>
+  
+  <Step title="Build Image">
+    ```bash
+    docker build \
+      --build-arg GIT_HASH=$(git rev-parse HEAD) \
+      -t my-pocketmine:latest \
+      -f docker/Dockerfile .
+    ```
+  </Step>
+  
+  <Step title="Run Custom Image">
+    ```bash
+    docker run -it -p 19132:19132/udp \
+      -v $PWD/data:/data \
+      -v $PWD/plugins:/plugins \
+      my-pocketmine:latest
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  Building the image can take 20-30 minutes as it compiles PHP and all required extensions.
+</Note>
+
+## Volumes and Data Persistence
+
+The container exposes two volumes:
+
+- `/data` - Read-write server data (worlds, configs, player data)
+- `/plugins` - Plugin directory (PHAR files)
+
+Using volumes ensures your data persists even if you remove the container:
+
+```bash
+# Remove container
+docker rm -f pocketmine
+
+# Run new container with same data
+docker run -it -p 19132:19132/udp \
+  -v $PWD/data:/data \
+  -v $PWD/plugins:/plugins \
+  --name pocketmine \
+  ghcr.io/pmmp/pocketmine-mp
+```
+
+Your worlds and configurations remain intact!
+
+## Troubleshooting
+
+### Permission Denied Errors
+
+If you see warnings about unowned files:
+
+```
+=== WARNING ===
+Detected X files in /data or /plugins not owned by the user "pocketmine"!
+```
+
+Fix with:
+
+```bash
+sudo chown -R 1000:1000 data plugins
+```
+
+### Port Already in Use
+
+```
+Error response from daemon: driver failed programming external connectivity
+```
+
+Another process is using port 19132. Either:
+
+1. Stop the other process
+2. Use a different host port:
+   ```bash
+   docker run -it -p 25565:19132/udp ...
+   ```
+
+### Container Exits Immediately
+
+Check container logs:
+
+```bash
+docker logs pocketmine
+```
+
+Common issues:
+- Setup wizard requires interactive mode (`-it` flags)
+- File permission issues
+- Configuration errors in `server.properties`
+
+### Cannot Connect to Server
+
+Check:
+
+1. Container is running:
+   ```bash
+   docker ps
+   ```
+
+2. Port mapping is correct:
+   ```bash
+   docker port pocketmine
+   ```
+
+3. Firewall allows UDP traffic:
+   ```bash
+   sudo ufw allow 19132/udp
+   ```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Start Guide" icon="rocket" href="/quickstart">
+    Learn server configuration and plugin basics
+  </Card>
+  <Card title="Server Configuration" icon="gear">
+    Customize server.properties and pocketmine.yml
+  </Card>
+  <Card title="Plugin Development" icon="code">
+    Create custom plugins for your server
+  </Card>
+  <Card title="Docker Documentation" icon="book" href="https://docs.docker.com">
+    Learn more about Docker
+  </Card>
+</CardGroup>

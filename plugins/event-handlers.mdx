@@ -1,0 +1,504 @@
+---
+title: Event Handlers
+description: Registering listeners and handling game events in PocketMine-MP
+---
+
+Events allow your plugin to react to things that happen on the server, like players joining, blocks breaking, entities spawning, and more.
+
+## What are Events?
+
+Events are fired when something happens on the server. Your plugin can listen to these events and execute custom code in response.
+
+Common events include:
+- `PlayerJoinEvent` - When a player joins
+- `BlockBreakEvent` - When a block is broken
+- `EntityDamageEvent` - When an entity takes damage
+- `PlayerChatEvent` - When a player sends a chat message
+
+## Creating an Event Listener
+
+<Steps>
+
+<Step title="Implement the Listener interface">
+
+```php
+use pocketmine\event\Listener;
+
+class MyListener implements Listener {
+    // Event handler methods go here
+}
+```
+
+Or make your main class a listener:
+
+```php
+use pocketmine\plugin\PluginBase;
+use pocketmine\event\Listener;
+
+class Main extends PluginBase implements Listener {
+    // Event handlers in main class
+}
+```
+
+</Step>
+
+<Step title="Create event handler methods">
+
+Event handler methods must:
+- Be **public**
+- Be **non-static**
+- Accept **exactly one parameter** that extends `Event`
+- Return **void** (or nothing)
+
+```php
+use pocketmine\event\player\PlayerJoinEvent;
+
+public function onPlayerJoin(PlayerJoinEvent $event) : void {
+    $player = $event->getPlayer();
+    $player->sendMessage("Welcome!");
+}
+```
+
+<Note>
+Method names can be anything - PocketMine detects event handlers by their parameter type, not the method name.
+</Note>
+
+</Step>
+
+<Step title="Register the listener">
+
+Register your listener in `onEnable()`:
+
+```php
+protected function onEnable() : void {
+    $this->getServer()->getPluginManager()->registerEvents(
+        new MyListener(), 
+        $this
+    );
+}
+```
+
+If your main class is the listener:
+
+```php
+protected function onEnable() : void {
+    $this->getServer()->getPluginManager()->registerEvents($this, $this);
+}
+```
+
+</Step>
+
+</Steps>
+
+## Complete Example
+
+<CodeGroup>
+
+```php Main.php
+<?php
+
+declare(strict_types=1);
+
+namespace MyPlugin;
+
+use pocketmine\plugin\PluginBase;
+use pocketmine\event\Listener;
+use pocketmine\event\player\PlayerJoinEvent;
+use pocketmine\event\player\PlayerQuitEvent;
+use pocketmine\event\block\BlockBreakEvent;
+
+class Main extends PluginBase implements Listener {
+    
+    protected function onEnable() : void {
+        // Register this class as event listener
+        $this->getServer()->getPluginManager()->registerEvents($this, $this);
+    }
+    
+    public function onJoin(PlayerJoinEvent $event) : void {
+        $player = $event->getPlayer();
+        $player->sendMessage("§aWelcome, " . $player->getName() . "!");
+        
+        // Customize join message
+        $event->setJoinMessage("§e[+] " . $player->getName());
+    }
+    
+    public function onQuit(PlayerQuitEvent $event) : void {
+        $player = $event->getPlayer();
+        $event->setQuitMessage("§e[-] " . $player->getName());
+    }
+    
+    public function onBlockBreak(BlockBreakEvent $event) : void {
+        $player = $event->getPlayer();
+        $block = $event->getBlock();
+        
+        // Don't allow breaking bedrock
+        if($block->getId() === BlockTypeIds::BEDROCK) {
+            $event->cancel();
+            $player->sendMessage("§cYou can't break bedrock!");
+        }
+    }
+}
+```
+
+```php Separate Listener
+<?php
+
+declare(strict_types=1);
+
+namespace MyPlugin;
+
+use pocketmine\event\Listener;
+use pocketmine\event\player\PlayerInteractEvent;
+use pocketmine\player\Player;
+
+class EventListener implements Listener {
+    
+    public function __construct(
+        private Main $plugin
+    ){}
+    
+    public function onInteract(PlayerInteractEvent $event) : void {
+        $player = $event->getPlayer();
+        $block = $event->getBlock();
+        
+        $this->plugin->getLogger()->info(
+            $player->getName() . " interacted with " . $block->getName()
+        );
+    }
+}
+
+// In Main.php onEnable():
+$this->getServer()->getPluginManager()->registerEvents(
+    new EventListener($this),
+    $this
+);
+```
+
+</CodeGroup>
+
+## Event Priority
+
+Event handlers execute in order based on priority. Use the `@priority` annotation to set priority:
+
+```php
+/**
+ * @priority LOWEST
+ */
+public function onJoinLowest(PlayerJoinEvent $event) : void {
+    // Executes first
+}
+
+/**
+ * @priority NORMAL
+ */
+public function onJoinNormal(PlayerJoinEvent $event) : void {
+    // Executes after LOWEST and LOW
+}
+
+/**
+ * @priority HIGHEST
+ */
+public function onJoinHighest(PlayerJoinEvent $event) : void {
+    // Executes near the end
+}
+
+/**
+ * @priority MONITOR
+ */
+public function onJoinMonitor(PlayerJoinEvent $event) : void {
+    // Executes last (for monitoring only, don't modify event)
+}
+```
+
+### Priority Levels
+
+From first to last:
+
+1. **LOWEST** - Run first, for early modifications
+2. **LOW** - Run early
+3. **NORMAL** - Default priority (if not specified)
+4. **HIGH** - Run late
+5. **HIGHEST** - Run near the end, for final modifications
+6. **MONITOR** - Run last, for monitoring only (don't modify the event)
+
+<Warning>
+MONITOR priority should only be used to observe events, not modify them. Other plugins expect the event to be finalized by this point.
+</Warning>
+
+## Handling Cancelled Events
+
+By default, your event handler won't be called if the event is cancelled. Override this with `@handleCancelled`:
+
+```php
+/**
+ * This handler runs even if the event is cancelled
+ * @handleCancelled
+ */
+public function onBlockBreak(BlockBreakEvent $event) : void {
+    if($event->isCancelled()) {
+        $this->getLogger()->info("Block break was cancelled");
+    }
+}
+```
+
+## Cancellable Events
+
+Many events can be cancelled to prevent the action:
+
+```php
+use pocketmine\event\block\BlockBreakEvent;
+
+public function onBlockBreak(BlockBreakEvent $event) : void {
+    $player = $event->getPlayer();
+    $block = $event->getBlock();
+    
+    // Check if event can be cancelled
+    if($event instanceof \pocketmine\event\Cancellable) {
+        
+        // Cancel the event
+        if(!$player->hasPermission("myplugin.break")) {
+            $event->cancel();
+            $player->sendMessage("You can't break blocks here!");
+            return;
+        }
+    }
+}
+```
+
+### Common Cancellable Events
+
+- `BlockBreakEvent` - Prevent block breaking
+- `BlockPlaceEvent` - Prevent block placing
+- `PlayerChatEvent` - Prevent chat messages
+- `EntityDamageEvent` - Prevent damage
+- `PlayerMoveEvent` - Prevent movement
+- `PlayerDropItemEvent` - Prevent item dropping
+
+## Modifying Events
+
+Many events let you modify their properties:
+
+```php
+use pocketmine\event\player\PlayerJoinEvent;
+use pocketmine\event\player\PlayerChatEvent;
+use pocketmine\event\block\BlockBreakEvent;
+
+// Modify join message
+public function onJoin(PlayerJoinEvent $event) : void {
+    $event->setJoinMessage("§6» §e" . $event->getPlayer()->getName());
+}
+
+// Modify chat message
+public function onChat(PlayerChatEvent $event) : void {
+    $message = $event->getMessage();
+    // Add prefix to message
+    $event->setMessage("[VIP] " . $message);
+}
+
+// Modify block drops
+public function onBreak(BlockBreakEvent $event) : void {
+    // Double the drops
+    $drops = $event->getDrops();
+    $event->setDrops(array_merge($drops, $drops));
+    
+    // Modify XP drops
+    $event->setXpDropAmount($event->getXpDropAmount() * 2);
+}
+```
+
+## Common Event Examples
+
+### Player Events
+
+```php
+use pocketmine\event\player\PlayerJoinEvent;
+use pocketmine\event\player\PlayerQuitEvent;
+use pocketmine\event\player\PlayerDeathEvent;
+use pocketmine\event\player\PlayerRespawnEvent;
+use pocketmine\event\player\PlayerChatEvent;
+use pocketmine\event\player\PlayerMoveEvent;
+
+public function onJoin(PlayerJoinEvent $event) : void {
+    $player = $event->getPlayer();
+    $player->setHealth($player->getMaxHealth());
+}
+
+public function onDeath(PlayerDeathEvent $event) : void {
+    $player = $event->getPlayer();
+    $event->setDeathMessage($player->getName() . " died!");
+    $event->setDrops([]); // Don't drop items
+}
+
+public function onChat(PlayerChatEvent $event) : void {
+    $message = $event->getMessage();
+    if(str_contains($message, "badword")) {
+        $event->cancel();
+        $event->getPlayer()->sendMessage("Watch your language!");
+    }
+}
+```
+
+### Block Events
+
+```php
+use pocketmine\event\block\BlockBreakEvent;
+use pocketmine\event\block\BlockPlaceEvent;
+use pocketmine\event\block\BlockBurnEvent;
+
+public function onBreak(BlockBreakEvent $event) : void {
+    $player = $event->getPlayer();
+    $block = $event->getBlock();
+    $position = $block->getPosition();
+    
+    // Prevent breaking in spawn area
+    if($position->getWorld()->getSpawnLocation()->distance($position) < 50) {
+        if(!$player->hasPermission("spawn.build")) {
+            $event->cancel();
+        }
+    }
+}
+
+public function onPlace(BlockPlaceEvent $event) : void {
+    $block = $event->getBlock();
+    
+    // Get blocks being replaced
+    foreach($event->getTransaction()->getBlocks() as [$x, $y, $z, $oldBlock]) {
+        $this->getLogger()->info("Placed at $x, $y, $z");
+    }
+}
+```
+
+### Entity Events
+
+```php
+use pocketmine\event\entity\EntityDamageEvent;
+use pocketmine\event\entity\EntityDamageByEntityEvent;
+use pocketmine\player\Player;
+
+public function onDamage(EntityDamageEvent $event) : void {
+    $entity = $event->getEntity();
+    
+    // Cancel damage in safe zones
+    if($entity instanceof Player) {
+        if($entity->hasPermission("god.mode")) {
+            $event->cancel();
+        }
+    }
+}
+
+public function onDamageByEntity(EntityDamageByEntityEvent $event) : void {
+    $damager = $event->getDamager();
+    $victim = $event->getEntity();
+    
+    // Prevent PvP
+    if($damager instanceof Player && $victim instanceof Player) {
+        $event->cancel();
+        $damager->sendMessage("PvP is disabled!");
+    }
+}
+```
+
+### World Events
+
+```php
+use pocketmine\event\world\WorldLoadEvent;
+use pocketmine\event\world\WorldUnloadEvent;
+use pocketmine\event\world\ChunkLoadEvent;
+
+public function onWorldLoad(WorldLoadEvent $event) : void {
+    $world = $event->getWorld();
+    $this->getLogger()->info("World loaded: " . $world->getDisplayName());
+}
+
+public function onChunkLoad(ChunkLoadEvent $event) : void {
+    $chunk = $event->getChunk();
+    $world = $event->getWorld();
+    
+    // Do something when chunks load
+}
+```
+
+## Ignoring Event Handlers
+
+Mark a method as NOT an event handler with `@notHandler`:
+
+```php
+/**
+ * This method accepts an Event but is NOT an event handler
+ * @notHandler
+ */
+public function processEvent(PlayerJoinEvent $event) : void {
+    // This is a helper method, not an event handler
+    // It won't be registered automatically
+}
+```
+
+## Performance Tips
+
+<Tip>
+
+**Check if handlers exist before creating events:**
+
+```php
+if(PlayerJoinEvent::hasHandlers()) {
+    $event = new PlayerJoinEvent($player);
+    $event->call();
+}
+```
+
+This avoids creating event objects when no plugins are listening.
+
+**Use higher priority for expensive operations:**
+
+If your handler does expensive work, use HIGH or HIGHEST priority so it runs after other plugins that might cancel the event.
+
+**Don't register unnecessary listeners:**
+
+Only register event listeners you actually need.
+
+</Tip>
+
+## Finding Events
+
+All events are in the `pocketmine\event` namespace:
+
+- `pocketmine\event\block\*` - Block events
+- `pocketmine\event\entity\*` - Entity events  
+- `pocketmine\event\player\*` - Player events
+- `pocketmine\event\world\*` - World events
+- `pocketmine\event\server\*` - Server events
+- `pocketmine\event\inventory\*` - Inventory events
+
+<Tip>
+Browse the source code at `src/event/` in the PocketMine-MP repository to find all available events.
+</Tip>
+
+## Debugging Events
+
+```php
+public function onJoin(PlayerJoinEvent $event) : void {
+    // Log event details
+    $this->getLogger()->debug("PlayerJoinEvent fired");
+    $this->getLogger()->debug("Player: " . $event->getPlayer()->getName());
+    $this->getLogger()->debug("Message: " . $event->getJoinMessage());
+    
+    // Check if cancelled
+    if($event instanceof \pocketmine\event\Cancellable) {
+        $this->getLogger()->debug("Cancelled: " . ($event->isCancelled() ? "yes" : "no"));
+    }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Commands" icon="terminal" href="/plugins/commands">
+Create custom commands
+</Card>
+
+<Card title="Scheduling" icon="clock" href="/plugins/scheduling">
+Schedule tasks and timers
+</Card>
+
+</CardGroup>
